@@ -1,0 +1,83 @@
+{%- macro field_port(register, field, is_last=False) -%}
+    {%- if field.access == 'RW' or field.access == 'WO' -%}
+output reg
+    {%- else -%}
+input wire
+    {%- endif -%}
+    {%- if field.bit_width > 1 %} [{{ field.bit_width - 1 }}:0] {% else %} {% endif -%}
+{{ register.name }}_{{ field.name }}
+    {%- if not is_last %},{% endif -%}
+{%- endmacro -%}
+
+{%- macro field_write_proc(register, field) -%}
+    always @(posedge clk) begin
+        if (rst) begin
+            {{ register.name }}_{{ field.name }} <= {{ field.reset }};
+        end else if (en && we && addr == {{ register.address_offset }}) begin
+            {{ register.name }}_{{ field.name }} <= din[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}];
+        end
+    end
+{%- endmacro -%}
+
+{%- macro read_proc(registers) -%}
+    always @(posedge clk) begin
+        if (rst) begin
+            dout <= '0;
+        end else if (en) begin
+            dout <= '0;
+            case (addr)
+    {% for r in registers %}
+                {{ r.address_offset }}: begin
+        {% for f in r.fields %}
+                    dout[{{ f.bit_width + f.bit_offset - 1 }}:{{ f.bit_offset }}] <= {{ r.name }}_{{ f.name }};
+        {% endfor %}
+                end
+    {% endfor %}
+                default: dout <= 'hDEADBEEF;
+            endcase
+        end
+    end
+{%- endmacro -%}
+
+`timescale 1 ns / 1 ps
+`default_nettype none
+module {{ data.register_map.name }} #(
+    parameter integer ADDR_WIDTH = 32,
+    parameter integer DATA_WIDTH = {{ data.register_map['width'] }}
+) (
+    // BRAM Interface
+    //---------------
+    input  wire                  clk,
+    input  wire                  rst,
+    input  wire [ADDR_WIDTH-1:0] addr,
+    input  wire [DATA_WIDTH-1:0] din,
+    input  wire                  we,
+    input  wire                  en,
+    output reg  [DATA_WIDTH-1:0] dout,
+    // Register Ports
+    //---------------
+    {% for r in data.register_map.registers %}
+    // {{ r.name }}
+        {% set outer_loop = loop %}
+        {% for f in r.fields %}
+    {{ field_port(r, f, loop.last and outer_loop.last) }}
+        {% endfor %}
+    {% endfor %}
+);
+
+    {% for r in data.register_map.registers %}
+    // {{ r.name }}
+
+        {% for f in r.fields %}
+            {% if f.access == 'RW' or f.access == 'WO' %}
+    {{ field_write_proc(r, f) }}
+
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+
+    {{ read_proc(data.register_map.registers) }}
+
+endmodule
+
+`default_nettype wire

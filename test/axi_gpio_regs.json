@@ -1,0 +1,141 @@
+{
+  "json_version": 2,
+  "register_map": {
+    "name": "AXI_GPIO",
+    "description": "AXI GPIO Controller.",
+    "width": 32,
+    "base_address": 0,
+    "registers": [
+      {
+        "type": "NORMAL",
+        "name": "GPIO_DATA",
+        "description": "Channel 1 AXI GPIO Data Register.",
+        "address_offset": 0,
+        "fields": [
+          {
+            "name": "value",
+            "description": "",
+            "access": "RW",
+            "bit_width": 32,
+            "bit_offset": 0,
+            "reset": 0
+          }
+        ]
+      },
+      {
+        "type": "NORMAL",
+        "name": "GPIO_TRI",
+        "description": "Channel 1 AXI GPIO 3-state Control Register.",
+        "address_offset": 4,
+        "fields": [
+          {
+            "name": "value",
+            "description": "",
+            "access": "RW",
+            "bit_width": 32,
+            "bit_offset": 0,
+            "reset": 0
+          }
+        ]
+      },
+      {
+        "type": "NORMAL",
+        "name": "GPIO2_DATA",
+        "description": "Channel 2 AXI GPIO Data Register.",
+        "address_offset": 8,
+        "fields": [
+          {
+            "name": "value",
+            "description": "",
+            "access": "RW",
+            "bit_width": 32,
+            "bit_offset": 0,
+            "reset": 0
+          }
+        ]
+      },
+      {
+        "type": "NORMAL",
+        "name": "GPIO2_TRI",
+        "description": "Channel 2 AXI GPIO 3-state Control Register.",
+        "address_offset": 12,
+        "fields": [
+          {
+            "name": "value",
+            "description": "",
+            "access": "RW",
+            "bit_width": 32,
+            "bit_offset": 0,
+            "reset": 0
+          }
+        ]
+      },
+      {
+        "type": "NORMAL",
+        "name": "GIER",
+        "description": "Global Interrupt Enable Register.",
+        "address_offset": 284,
+        "size": 32,
+        "fields": [
+          {
+            "name": "GIE",
+            "description": "",
+            "access": "RW",
+            "bit_width": 1,
+            "bit_offset": 31,
+            "reset": 0
+          }
+        ]
+      },
+      {
+        "type": "NORMAL",
+        "name": "IP_ISR",
+        "description": "IP Interrupt Status Register.",
+        "address_offset": 288,
+        "fields": [
+          {
+            "name": "IS0",
+            "description": "Channel 1 Interrupt Status\r\n0: No Channel 1 input interrupt\r\n1: Channel 1 input interrupt",
+            "access": "RO",
+            "bit_width": 1,
+            "bit_offset": 0,
+            "reset": 0
+          },
+          {
+            "name": "IS1",
+            "description": "Channel 2 Interrupt Status\r\n0: No Channel 1 input interrupt\r\n1: Channel 1 input interrupt",
+            "access": "RO",
+            "bit_width": 1,
+            "bit_offset": 1,
+            "reset": 0
+          }
+        ]
+      },
+      {
+        "type": "NORMAL",
+        "name": "IP_IER",
+        "description": "IP Interrupt Enable Register.",
+        "address_offset": 296,
+        "fields": [
+          {
+            "name": "IE0",
+            "description": "Enable Channel 1 Interrupt.\r\n0 = Disabled (masked)\r\n1 = Enabled",
+            "access": "RW",
+            "bit_width": 1,
+            "bit_offset": 0,
+            "reset": 0
+          },
+          {
+            "name": "IE1",
+            "description": "Enable Channel 2 Interrupt.\n0 = Disabled (masked)\n1 = Enabled",
+            "access": "RW",
+            "bit_width": 1,
+            "bit_offset": 1,
+            "reset": 0
+          }
+        ]
+      }
+    ],
+    "revision": 34
+  }
+}
