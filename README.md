@@ -1,69 +1,69 @@
-# HDL REGEN
+# REGEN
 
-HDL REGEN (HDL Register Generator) is a tool for automatically generating register slave HDL with AXI or other interface. It can easily generate a SystemVerilog module from a description file, omitting the effort of writing the redundancy and error prone HDL codes by hand.
+REGEN is a tool for automatically generating HDL register slave module. Currently it's designed for [AXI4-Lite](https://en.wikipedia.org/wiki/Advanced_eXtensible_Interface) interface. It can easily generate a SystemVerilog (*.sv*) module from a description file, omitting the effort of writing the redundancy and error prone HDL codes by yourself.
 
-This project is inspired by same kind of tool from my company. It generates a OPB/AXI HDL slave module from an Excel file. The Excel holds detail description of registers/fields for each module. It also could generate C header file for software use, as well as a Word file as document for the software-hardware interface. Many designs, including FPGA and ASIC projects, benefit from this tool. However, it's a proprietary tool, I can't use for my hobby projects. Also, the tool is over-designed somewhere, and bad designed or leak of some feature at some point. So I decide to design my own (山寨) one.
+This project is inspired by some public tool like [airhdl](https://airhdl.com) and similar proprietary tool I have used. The idea is that the tool can read an easy-to-edit description file, and parse it into an SystemVerilog template. The description file holds the detail of registers/fields for the register block. It also could generate C header (*.h*) file for software use, as well as a Word file (*.docx*) as document for the software-hardware interface description. At least my personal FPGA projects will benefit from this tool.
 
-The idea is that the tool can read an easy-to-edit description file, and parse it into an SystemVerilog template. It's not complex, but as and FPGA developer, it's still a little out of my knowledge scope. I'll slowly work on it to make it functions basically, but beware that this project currently is still work in progress and does not work at all.
+It's not complex, I'm slowly making it function basically. But beware that currently this project is still work in progress and may not work at all.
 
 ## Input File
 
-Excel (.xlsx) is a good candidate for the description file. Microsoft and Google provide good team coop tool for Excel documents, and it's very easy to edit ($). Python has a good library to handle this format. JSON (.json) is another widely used format for data exchange, but less easy to edit. They are both planned to be supported.
+Excel (*.xls*/*.xlsx*) is a good candidate for the description file. Microsoft and Google provide good team coop tool for Excel documents, and it's very easy to edit (but cost $). If you don't like the binary format or want better version control, Comma-Separated Values (*.csv*) file is another good choice.
 
-- [ ] Excel (.xlsx)
-- [x] JSON (.json)
+JSON (.json) format is widely used format for data exchange, but less easy to edit.
+
+- [ ] Excel (*.xls*/*.xlsx*)
+- [ ] Comma-Separated Values (*.csv*)
+- [x] JSON (*.json*)
 
 ## Model
 
-- [ ] **Storage**
-- [x] json_version
-- [x] reversion
-- [x] register_map
-    - [ ] **RegisterMap**
+Internal representation of data:
+
+- [x] **Block**
+  - [x] name
+  - [x] description
+  - [x] with
+  - [x] base_address
+  - [x] registers
+    - [ ] **Register**
+    - [x] type
+      - [x] Normal
+      - [ ] Interrupt
+      - [ ] Array (easy duplicated register)
+      - [ ] Memory
     - [x] name
     - [x] description
-    - [x] with
-    - [x] base_address
-    - [x] registers
-        - [ ] **Register**
-        - [x] type
-            - [x] Normal
-            - [ ] Interrupt
-            - [ ] Array (easy duplicated register)
-            - [ ] Memory
-        - [x] name
-        - [x] description
-        - [x] address_offset
-        - [x] fields
-            - [ ] **Field**
-            - [x] name
-            - [x] description
-            - [x] access
-                - Output
-                    - [x] **RW**: Read & Write. Simple write, read writen value
-                - Input
-                    - [x] **RO**: Read Only. Read from input, write has no effect
-                - Bi-direction
-                    - [ ] **RW2**: Read & Write 2-way. Like combine RW and RO at same address
-                - Special
-                    - [ ] **INT**: Specially for interrupt register
-            - [ ] strobe
-            - [ ] enumerated_values
-            - [x] bit_width
-            - [x] bit_offset
-            - [x] reset
+    - [x] address_offset
+    - [x] fields
+      - [ ] **Field**
+      - [x] name
+      - [x] description
+      - [x] access
+        - Output
+          - [x] **RW**: Read & Write. Simple write, read written value
+        - Input
+          - [x] **RO**: Read Only. Read from input, write has no effect
+        - Bi-direction
+          - [ ] **RW2**: Read & Write 2-way. Like combine RW and RO at same address
+        - Special
+          - [ ] **INT**: Specially for interrupt register
+      - [ ] strobe
+      - [ ] enumerated_values
+      - [x] bit_width
+      - [x] bit_offset
+      - [x] reset
 
 ## Advanced Features
 
 - [ ] DRC
-    - Error
-        - [ ] No char other than *A-Z*, *a-z*, *0-9* and *_* in name
-        - [ ] No address overlapped registers
-        - [ ] No bit overlapped fields
-    - Critical
-        - [ ] No lower alphabets (*a-z*) in name
-    - Warning
-        - [ ] No empty description
+  - Error
+    - [ ] No char other than *A-Z*, *a-z*, *0-9* and *_* in name
+    - [ ] No address overlapped registers
+    - [ ] No bit overlapped fields
+  - Warning
+    - [ ] No lower alphabets (*a-z*) in name
+    - [ ] No empty description
 - [ ] Markdown support in description
 
 ## Random Thought
@@ -83,14 +83,9 @@ May not be realized
 For the file generation, SystemVerilog (.sv) is chosen since I use it very much. However, it's very easy to add another template to add support of other functionality (different interface and different format).
 
 - [ ] SystemVerilog (.sv), AXI4-Lite interface
-    - No **WSTRB** support
-    - No **AWPROT** and **ARPROT** support
-    - [ ] Test bench (.sv)
-
-- [x] SystemVerilog (.sv), Xilinx BRAM interface
-    - No write byte enable support
-    - Single port
-    - [ ] Test bench (.sv)
+  - No **WSTRB** support
+  - No **AWPROT** and **ARPROT** support
+  - [ ] Test bench (.sv)
 
 - [ ] SystemVerilog header (.svh)
 
