@@ -3,15 +3,19 @@ import io
 import json
 import logging
 import os
+import string
 import sys
 from enum import Enum
-from typing import Optional
+from math import ceil, log2
+from typing import Optional, List, Any
 
 from jinja2 import Environment, FileSystemLoader
 
 __version__ = '0.1'
 
 logger = logging.getLogger('main')
+
+name_set = string.ascii_letters + string.digits + '_'
 
 
 def init_logger(level: int = None):
@@ -33,6 +37,16 @@ def init_logger(level: int = None):
         logger.setLevel(level)
 
 
+def normalize_name(name: str) -> str:
+    """
+    Normalize block, register or field's name.
+    :param name: Name in string
+    :return: Normalized name
+    """
+    name = [c if c in name_set else '' for c in name]
+    return ''.join(name)
+
+
 class FieldAccess(Enum):
     """
     Access type of a field, this controls the input/output direction and the
@@ -40,7 +54,7 @@ class FieldAccess(Enum):
     """
     READ_WRITE = 'RW'  # Output, read written value
     READ_ONLY = 'RO'  # Input, write has no effect
-    WRITE_ONLY = 'WO'  # Output, read all zeros
+    # TODO: Add more field access type here
 
 
 class RegisterType(Enum):
@@ -49,74 +63,216 @@ class RegisterType(Enum):
     """
     NORMAL = 'NORMAL'  # Normal register
     # INTERRUPT = 'INTERRUPT'  # Interrupt register
+    # TODO: Add more register type here
 
 
 class Field:
-    """
-    Register field, atom element of hdl logic generation.
-    """
+    """Register field."""
+    _name: str
+    _description: str
+    _access: FieldAccess
+    _bit_offset: int
+    _bit_width: int
+    _reset: int
 
     def __init__(self, d: dict):
-        self.name = d['name']
-        self.description = d['description']
-        self.bit_width = d['bit_width']
-        self.bit_offset = d['bit_offset']
-        self.reset = d['reset']
-        self.access = d['access']
+        """Build a field object from a dict."""
+        name: str = d['name']
+        name_norm = normalize_name(name)
+        if not name == name_norm:
+            logger.critical('Field name "%s" contains invalid char and is '
+                            'renamed to "%s"', name, name_norm)
+        self._name = name_norm
+        self._description = d['description']
+        self._access = FieldAccess(d['access'])
+        self._bit_offset = d['bit_offset']
+        self._bit_width = d['bit_width']
+        self._reset = d['reset']
+
+    @property
+    def name(self):
+        return self._name.strip().upper()
+
+    @property
+    def description(self):
+        return self._description
+
+    @property
+    def access(self):
+        return self._access
+
+    @property
+    def bit_offset(self):
+        return self._bit_offset
+
+    @property
+    def bit_width(self):
+        return self._bit_width
+
+    @property
+    def reset(self):
+        return self._reset
 
 
 class Register:
-    """
-    One Register in register map, contains one or more field.
-    """
+    """Register in register block."""
+    _name: str
+    _description: str
+    _type: RegisterType
+    _address_offset: int
+    _fields: List[Field]
 
     def __init__(self, d: dict):
-        self.type = d['type']
-        self.name = d['name']
-        self.description = d['description']
-        self.address_offset = d['address_offset']
-        self.fields = []
+        """Build a register from dict."""
+        name = d['name']
+        name_norm = normalize_name(name)
+        if not name == name_norm:
+            logger.critical('Register name "%s" contains invalid char and is '
+                            'renamed to "%s"', name, name_norm)
+        self._name = name_norm
+        self._description = d['description']
+        self._type = RegisterType(d['type'])
+        self._address_offset = d['address_offset']
+        fs = []
         for f in d['fields']:
-            self.fields.append(Field(f))
+            fs.append(Field(f))
+        self._fields = sorted(fs, key=lambda x: x.bit_offset)
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def description(self):
+        return self._description
+
+    @property
+    def type(self):
+        return self._type
+
+    @property
+    def address_offset(self):
+        return self._address_offset
 
     @property
     def reset(self) -> int:
-        """
-        The reset value of the register.
-        """
+        """Get the reset value of the register."""
         a = 0
-        for f in self.fields:
+        for f in self._fields:
             a |= (f.reset << f.bit_offset)
         return a
 
-    def sort(self, reverse=False):
-        """
-        Sort the fields in register based on field's `bit_offset` attribute.
-        """
-        self.fields.sort(key=lambda f: f.bit_offset, reverse=reverse)
+    @property
+    def fields(self):
+        return self._fields
 
 
-class RegisterMap:
-    """
-    Register map, contains one or more register.
-    """
+class Block:
+    """Register slave block."""
+    _name: str
+    _description: str
+    _width: int
+    _base_address: int
+    _registers: List[Register]
 
     def __init__(self, d: dict):
-        self.name = d['name']
-        self.description = d['description']
-        self.width = d['width']
-        self.base_address = d['base_address']
-        self.registers = []
+        """Build a register block from a dict."""
+        name = d['name']
+        name_norm = normalize_name(name)
+        if not name == name_norm:
+            logger.critical('Block name "%s" contains invalid char and is '
+                            'named to "%s"', name, name_norm)
+        self._name = name_norm
+        self._description = d['description']
+        self._width = d['width']
+        self._base_address = d['base_address']
+        regs = []
         for r in d['registers']:
-            self.registers.append(Register(r))
+            regs.append(Register(r))
+        self._registers = sorted(regs, key=lambda x: x.address_offset)
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def description(self):
+        return self._description
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def base_address(self):
+        return self._base_address
+
+    @property
+    def address_width(self) -> int:
+        """Minimum required address width."""
+        return ceil(log2(self._registers[-1].address_offset + 1))
+
+    @property
+    def registers(self):
+        return self._registers
+
+    def to_json(self) -> str:
+        """
+        Serialize this object to a JSON string.
+        """
+        s = json.dumps(self, cls=BlockEncoder, indent=2)
+        return s
 
 
-def read_json(file: io.TextIOWrapper) -> Optional[RegisterMap]:
+class BlockEncoder(json.JSONEncoder):
     """
-    Deserialize JSON document to RegisterMap object.
+    Custom JSON Encoder for Block object.
+    """
+
+    def default(self, o: Any) -> Any:
+        if isinstance(o, FieldAccess):
+            return o.value
+
+        if isinstance(o, RegisterType):
+            return o.value
+
+        if isinstance(o, Field):
+            return {
+                'name': o.name,
+                'description': o.description,
+                'access': o.access,
+                'bit_offset': o.bit_offset,
+                'bit_width': o.bit_width,
+                'reset': o.reset
+            }
+
+        if isinstance(o, Register):
+            return {
+                'name': o.name,
+                'description': o.description,
+                'type': o.type,
+                'address_offset': o.address_offset,
+                'fields': o.fields
+            }
+
+        if isinstance(o, Block):
+            return {
+                'name': o.name,
+                'description': o.description,
+                'width': o.width,
+                'base_address': o.base_address,
+                'registers': o.registers
+            }
+
+        return super(BlockEncoder, self).default(o)
+
+
+def read_json(file: io.TextIOWrapper) -> Optional[Block]:
+    """
+    Deserialize JSON document to Block object.
 
     :param file: An TextIOWrapper object with read access.
-    :return: RegisterMap object if success, None if any error.
+    :return: Block object if success, None if any error.
     """
 
     try:
@@ -126,38 +282,38 @@ def read_json(file: io.TextIOWrapper) -> Optional[RegisterMap]:
         return None
 
     try:
-        rm = RegisterMap(d)
+        rm = Block(d)
     except KeyError as e:
         logger.critical(f'Error in {e}')
         return None
     return rm
 
 
-def read_xlsx(file: str) -> Optional[RegisterMap]:
+def read_xlsx(file: str) -> Optional[Block]:
     """
-    Parse excel (.xlsx) document to RegisterMap object.
+    Parse excel (.xlsx) document to Block object.
 
     :param file: An TextIOWrapper object with read access.
-    :return: RegisterMap object if success, None if any error.
+    :return: Block object if success, None if any error.
     """
     raise NotImplementedError
 
 
-def read_csv(file: io.TextIOWrapper) -> Optional[RegisterMap]:
+def read_csv(file: io.TextIOWrapper) -> Optional[Block]:
     """
-    Parse .csv document to to RegisterMap ojbect.
+    Parse .csv document to to Block object.
 
     :param file: An TextIOWrapper object with read access.
-    :return: RegisterMap object if success, None if any error.
+    :return: Block object if success, None if any error.
     """
     raise NotImplementedError
 
 
-def render_template(rm: RegisterMap, template: str, ) -> str:
+def render_template(rm: Block, template: str, ) -> str:
     """
-    Render RegisterMap using a specified template.
+    Render Block using a specified template.
 
-    :param rm: RegisterMap object
+    :param rm: Block object
     :param template: Template name
     :return: rendered string
     """
@@ -238,7 +394,7 @@ def parse_arguments(argv=None):
     # template is chosen based on the output format.
     parser.add_argument(
         '-t', '--to',
-        choices=['sv', 'v', 'vhd', 'vhdl', 'h', 'vh', 'svh'],
+        choices=['json', 'sv', 'v', 'vhd', 'vhdl', 'h', 'vh', 'svh'],
         dest='to_format',
         help='Specify output format',
     )
@@ -351,7 +507,10 @@ def main(argv=None):
         elif args.to_format == 'vh':
             args.template = 'verilog_header.vh.j2'
         elif args.to_format == 'svh':
-            args.template = 'systemverilog_header.vh.j2'
+            args.template = 'systemverilog_header.svh.j2'
+        elif args.to_format == 'json':
+            # JSON conversion is not done using template
+            pass
         else:
             logger.error(f'Unsupported write format: {args.to_format}')
             sys.exit(2)
@@ -374,7 +533,10 @@ def main(argv=None):
 
     # Render using template
 
-    s = render_template(rm, args.template)
+    if args.to_format == 'json':
+        s = rm.to_json()
+    else:
+        s = render_template(rm, args.template)
 
     # Write file
 

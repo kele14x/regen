@@ -1,6 +1,6 @@
 {
-  "name": "AXI_GPIO",
-  "description": "AXI GPIO Controller.",
+  "name": "SIMPLE_GPIO",
+  "description": "Simple AXI GPIO Controller.",
   "width": 32,
   "base_address": 0,
   "registers": [
@@ -11,7 +11,7 @@
       "address_offset": 0,
       "fields": [
         {
-          "name": "value",
+          "name": "VAL",
           "description": "",
           "access": "RW",
           "bit_width": 32,
@@ -27,7 +27,7 @@
       "address_offset": 4,
       "fields": [
         {
-          "name": "value",
+          "name": "VAL",
           "description": "",
           "access": "RW",
           "bit_width": 32,
@@ -43,7 +43,7 @@
       "address_offset": 8,
       "fields": [
         {
-          "name": "value",
+          "name": "VAL",
           "description": "",
           "access": "RW",
           "bit_width": 32,
@@ -59,7 +59,7 @@
       "address_offset": 12,
       "fields": [
         {
-          "name": "value",
+          "name": "VAL",
           "description": "",
           "access": "RW",
           "bit_width": 32,
@@ -125,7 +125,7 @@
         },
         {
           "name": "IE1",
-          "description": "Enable Channel 2 Interrupt.\n0 = Disabled (masked)\n1 = Enabled",
+          "description": "Enable Channel 2 Interrupt.\r\n0 = Disabled (masked)\r\n1 = Enabled",
           "access": "RW",
           "bit_width": 1,
           "bit_offset": 1,
