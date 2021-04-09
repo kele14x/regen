@@ -1,3 +1,10 @@
+"""
+regen is HDL slave register module generator for FPGA/ASIC design.
+
+Usage:
+    python regen.py INPUT -o OUTPUT
+"""
+
 import argparse
 import io
 import json
@@ -20,12 +27,11 @@ name_set = string.ascii_letters + string.digits + '_'
 
 def init_logger(level: int = None):
     """
-    Initialize the logger (from std logging library) with specified name and
-    level.
+    Initialize the logger with specified name and level.
+
     :param level: Numeric logging level, usually an constant from logging.
     e.g. :py:const:`logging.WARNING`.
     """
-
     formatter = logging.Formatter('[%(levelname)s] [%(name)s] %(message)s')
 
     handler = logging.StreamHandler()
@@ -40,6 +46,7 @@ def init_logger(level: int = None):
 def normalize_name(name: str) -> str:
     """
     Normalize block, register or field's name.
+
     :param name: Name in string
     :return: Normalized name
     """
@@ -49,9 +56,11 @@ def normalize_name(name: str) -> str:
 
 class FieldAccess(Enum):
     """
-    Access type of a field, this controls the input/output direction and the
-    hdl logic of a field.
+    Access type of a field.
+
+    This controls the input/output direction and the hdl logic of a field.
     """
+
     READ_WRITE = 'RW'  # Output, read written value
     READ_ONLY = 'RO'  # Input, write has no effect
     # TODO: Add more field access type here
@@ -59,15 +68,19 @@ class FieldAccess(Enum):
 
 class RegisterType(Enum):
     """
-    Type of a register, currently only normal register is supported.
+    Type of a register.
+
+    Currently only normal register is supported.
     """
+
     NORMAL = 'NORMAL'  # Normal register
     # INTERRUPT = 'INTERRUPT'  # Interrupt register
     # TODO: Add more register type here
 
 
 class Field:
-    """Register field."""
+    """Register field in register."""
+
     _name: str
     _description: str
     _access: FieldAccess
@@ -99,7 +112,7 @@ class Field:
 
     @property
     def access(self):
-        return self._access
+        return self._access.value
 
     @property
     def bit_offset(self):
@@ -168,7 +181,8 @@ class Register:
 
 
 class Block:
-    """Register slave block."""
+    """Register block."""
+
     _name: str
     _description: str
     _width: int
@@ -225,11 +239,10 @@ class Block:
 
 
 class BlockEncoder(json.JSONEncoder):
-    """
-    Custom JSON Encoder for Block object.
-    """
+    """Custom JSON Encoder for Block object."""
 
     def default(self, o: Any) -> Any:
+        """Overloaded method to return an dict for json encoding."""
         if isinstance(o, FieldAccess):
             return o.value
 
@@ -274,7 +287,6 @@ def read_json(file: io.TextIOWrapper) -> Optional[Block]:
     :param file: An TextIOWrapper object with read access.
     :return: Block object if success, None if any error.
     """
-
     try:
         d = json.load(file)
     except json.JSONDecodeError as e:
@@ -317,7 +329,6 @@ def render_template(rm: Block, template: str, ) -> str:
     :param template: Template name
     :return: rendered string
     """
-
     # Configure and build jinja2 template
     fp = os.path.abspath(os.path.join(__file__, '../templates'))
     logger.debug(f'Template search path: {fp}')
@@ -456,10 +467,7 @@ def parse_arguments(argv=None):
 
 
 def main(argv=None):
-    """
-    Main process.
-    """
-
+    """Will be called if script is executed as script."""
     # skip first argument, which is path to script self
     args = parse_arguments(argv[1:])
 
