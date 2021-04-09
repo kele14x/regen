@@ -411,7 +411,7 @@ module {{ block.name | lower }}_regs #(
     end else if (rd_state == S_RDWAIT && rd_ack) begin
       s_axi_rdata <= rd_data;
     end else if (rd_state == S_RDWAIT && &rd_cnt) begin
-        s_axi_rdata <= 'd0; // Read time out, give master default value
+      s_axi_rdata <= 'd0; // Read time out, give master default value
     end
   end
 
@@ -450,7 +450,7 @@ module {{ block.name | lower }}_regs #(
     if (!aresetn) begin
       wr_ack <= 1'b0;
     end else begin
-      wr_ack <= wr_req;
+      wr_ack <= wr_en;
     end
   end
 
@@ -467,7 +467,7 @@ module {{ block.name | lower }}_regs #(
     if (!aresetn) begin
       rd_ack <= 1'b0;
     end else begin
-      rd_ack <= rd_req;
+      rd_ack <= rd_en;
     end
   end
 
