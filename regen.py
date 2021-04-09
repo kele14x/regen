@@ -9,12 +9,12 @@ import argparse
 import io
 import json
 import logging
+import math
 import os
 import string
 import sys
 from enum import Enum
-from math import ceil, log2
-from typing import Optional, List, Any
+from typing import Any, List, Optional
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -123,6 +123,10 @@ class Field:
         return self._bit_width
 
     @property
+    def bit_mask(self):
+        return ((2 ** self._bit_width) - 1) * (2 ** self._bit_offset)
+
+    @property
     def reset(self):
         return self._reset
 
@@ -215,6 +219,7 @@ class Block:
 
     @property
     def width(self):
+        """Bit width of data."""
         return self._width
 
     @property
@@ -224,7 +229,7 @@ class Block:
     @property
     def address_width(self) -> int:
         """Minimum required address width."""
-        return ceil(log2(self._registers[-1].address_offset + 1))
+        return math.ceil(math.log2(self._registers[-1].address_offset + 1)) + 2
 
     @property
     def registers(self):
@@ -364,7 +369,7 @@ def parse_arguments(argv=None):
         default=sys.stdin,
         help='Read input from INPUT instead of stdin',
         nargs='?',
-        type=argparse.FileType('r'),
+        type=argparse.FileType('r', encoding='UTF-8'),
     )
 
     # If user does not specify a output file, we write to stdout.
@@ -376,7 +381,7 @@ def parse_arguments(argv=None):
         dest='output',
         help='Write output to OUTPUT instead of stdout',
         nargs='?',
-        type=argparse.FileType('w'),
+        type=argparse.FileType('w', encoding='UTF-8'),
     )
 
     # If user does not specify a log file, we write to stderr. Note stderr by
@@ -387,7 +392,7 @@ def parse_arguments(argv=None):
         dest='log',
         help='Write log to LOG instead of stderr',
         nargs='?',
-        type=argparse.FileType('w'),
+        type=argparse.FileType('w', encoding='UTF-8'),
     )
 
     # Format Options

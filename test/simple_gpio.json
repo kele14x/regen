@@ -24,7 +24,7 @@
       "type": "NORMAL",
       "name": "GPIO_TRI",
       "description": "Channel 1 AXI GPIO 3-state Control Register.",
-      "address_offset": 4,
+      "address_offset": 1,
       "fields": [
         {
           "name": "VAL",
@@ -40,7 +40,7 @@
       "type": "NORMAL",
       "name": "GPIO2_DATA",
       "description": "Channel 2 AXI GPIO Data Register.",
-      "address_offset": 8,
+      "address_offset": 2,
       "fields": [
         {
           "name": "VAL",
@@ -56,7 +56,7 @@
       "type": "NORMAL",
       "name": "GPIO2_TRI",
       "description": "Channel 2 AXI GPIO 3-state Control Register.",
-      "address_offset": 12,
+      "address_offset": 3,
       "fields": [
         {
           "name": "VAL",
@@ -72,7 +72,7 @@
       "type": "NORMAL",
       "name": "GIER",
       "description": "Global Interrupt Enable Register.",
-      "address_offset": 284,
+      "address_offset": 71,
       "size": 32,
       "fields": [
         {
@@ -89,7 +89,7 @@
       "type": "NORMAL",
       "name": "IP_ISR",
       "description": "IP Interrupt Status Register.",
-      "address_offset": 288,
+      "address_offset": 72,
       "fields": [
         {
           "name": "IS0",
@@ -113,7 +113,7 @@
       "type": "NORMAL",
       "name": "IP_IER",
       "description": "IP Interrupt Enable Register.",
-      "address_offset": 296,
+      "address_offset": 74,
       "fields": [
         {
           "name": "IE0",
