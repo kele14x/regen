@@ -63,6 +63,7 @@ class FieldAccess(Enum):
 
     READ_WRITE = 'RW'  # Output, read written value
     READ_ONLY = 'RO'  # Input, write has no effect
+    READ_WRITE_2WAY = 'RW2'  # Output and input two way
     # TODO: Add more field access type here
 
 
@@ -133,6 +134,7 @@ class Field:
 
 class Register:
     """Register in register block."""
+
     _name: str
     _description: str
     _type: RegisterType
@@ -236,9 +238,7 @@ class Block:
         return self._registers
 
     def to_json(self) -> str:
-        """
-        Serialize this object to a JSON string.
-        """
+        """Serialize this object to a JSON string."""
         s = json.dumps(self, cls=BlockEncoder, indent=2)
         return s
 
