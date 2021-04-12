@@ -1,24 +1,10 @@
 import json
 import logging
 import math
-import string
 from enum import Enum
 from typing import Any, List, Optional
 
 logger = logging.getLogger('main')
-
-name_set = string.ascii_letters + string.digits + '_'
-
-
-def normalize_name(name: str) -> str:
-    """
-    Normalize block, register or field's name.
-
-    :param name: Name in string
-    :return: Normalized name
-    """
-    name = [c if c in name_set else '' for c in name]
-    return ''.join(name)
 
 
 class FieldAccess(Enum):
@@ -58,12 +44,7 @@ class Field:
 
     def __init__(self, d: dict):
         """Build a field object from a dict."""
-        name: str = d['name']
-        name_norm = normalize_name(name)
-        if not name == name_norm:
-            logger.critical('Field name "%s" contains invalid char and is '
-                            'renamed to "%s"', name, name_norm)
-        self._name = name_norm
+        self._name = d['name'].strip()
         self._description = d['description']
         self._access = FieldAccess(d['access'])
         self._bit_offset = d['bit_offset']
@@ -72,7 +53,7 @@ class Field:
 
     @property
     def name(self):
-        return self._name.strip().upper()
+        return self._name
 
     @property
     def description(self):
@@ -110,12 +91,7 @@ class Register:
 
     def __init__(self, d: dict):
         """Build a register from dict."""
-        name = d['name']
-        name_norm = normalize_name(name)
-        if not name == name_norm:
-            logger.critical('Register name "%s" contains invalid char and is '
-                            'renamed to "%s"', name, name_norm)
-        self._name = name_norm
+        self._name = d['name'].strip()
         self._description = d['description']
         self._type = RegisterType(d['type'])
         self._address_offset = d['address_offset']
@@ -164,12 +140,7 @@ class Block:
 
     def __init__(self, d: dict):
         """Build a register block from a dict."""
-        name = d['name']
-        name_norm = normalize_name(name)
-        if not name == name_norm:
-            logger.critical('Block name "%s" contains invalid char and is '
-                            'named to "%s"', name, name_norm)
-        self._name = name_norm
+        self._name = d['name'].strip()
         self._description = d['description']
         self._width = d['width']
         self._base_address = d['base_address']

@@ -9,15 +9,13 @@ import argparse
 import io
 import json
 import logging
-import math
 import os
-import string
 import sys
-from enum import Enum
 from typing import Any, List, Optional
 
 from jinja2 import Environment, PackageLoader
 
+from .drc import run_drc
 from .logging import init_logger
 from .model import Block, Field, Register
 
@@ -282,6 +280,10 @@ def main(argv=None):
     if not rm:
         logger.error(f'Error reading input file, exit...')
         sys.exit(2)
+
+    # Run DRC
+
+    run_drc(rm)
 
     # Render using template
 
