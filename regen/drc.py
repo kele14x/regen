@@ -3,32 +3,32 @@ import string
 
 from .model import Block
 
-name_set = string.ascii_letters + string.digits + '_'
+char_set = string.ascii_letters + string.digits + '_'
 
 logger = logging.getLogger('main')
 
 
-def check_name_normalized(name: str) -> str:
+def check_id_normalized(ids: str) -> bool:
     """
     Normalize block, register or field's name.
 
-    :param name: Name in string
+    :param ids: ID in string
     :return: Normalized name
     """
-    for c in name:
-        if c not in name_set:
-            logger.error(f'Name {name} contains invalid char {c}')
+    for c in ids:
+        if c not in char_set:
+            logger.error(f'ID {ids} contains invalid char {c}')
             return False
     return True
 
 
-def drc_normalized_name(b: Block):
-    check_name_normalized(b.name)
+def drc_normalized_id(b: Block):
+    check_id_normalized(b.id)
     for r in b.registers:
-        check_name_normalized(r.name)
+        check_id_normalized(r.id)
         for f in r.fields:
-            check_name_normalized(f.name)
+            check_id_normalized(f.id)
 
 
 def run_drc(b: Block):
-    drc_normalized_name(b)
+    drc_normalized_id(b)

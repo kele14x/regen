@@ -2,7 +2,7 @@
 {%- macro field_port(direction, register, field, suffix='', is_last=False) -%}
 {{ direction }} var
   {%- if field.bit_width > 1 %} [{{ field.bit_width - 1 }}:0] {% else %} {% endif -%}
-{{ register.name | lower }}_{{ field.name | lower }}{{ suffix }}
+{{ register.id | lower }}_{{ field.id | lower }}{{ suffix }}
   {%- if not is_last %},{% endif -%}
 {%- endmacro -%}
 
@@ -27,9 +27,9 @@
 {%- macro field_write_proc(register, field, suffix='') -%}
   always_ff @(posedge aclk) begin
     if (!aresetn) begin
-      {{ register.name | lower }}_{{ field.name | lower }}{{ suffix }} <= {{ field.reset }};
+      {{ register.id | lower }}_{{ field.id | lower }}{{ suffix }} <= {{ field.reset }};
     end else if (wr_en && wr_addr == {{ register.address_offset }}) begin
-      {{ register.name | lower }}_{{ field.name | lower }}{{ suffix }} <= wr_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}];
+      {{ register.id | lower }}_{{ field.id | lower }}{{ suffix }} <= wr_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}];
     end
   end
 {%- endmacro -%}
@@ -47,9 +47,9 @@
         {{ r.address_offset }}: begin
     {% for f in r.fields %}
       {% if f.access == 'RO' or f.access == 'RW' %}
-          rd_data[{{ f.bit_width + f.bit_offset - 1 }}:{{ f.bit_offset }}] <= {{ r.name | lower }}_{{ f.name | lower }};
+          rd_data[{{ f.bit_width + f.bit_offset - 1 }}:{{ f.bit_offset }}] <= {{ r.id | lower }}_{{ f.id | lower }};
       {% elif f.access == 'RW2' %}
-          rd_data[{{ f.bit_width + f.bit_offset - 1 }}:{{ f.bit_offset }}] <= {{ r.name | lower }}_{{ f.name | lower }}_in;
+          rd_data[{{ f.bit_width + f.bit_offset - 1 }}:{{ f.bit_offset }}] <= {{ r.id | lower }}_{{ f.id | lower }}_in;
       {% else %}
         // TEMPLATE ERROR: UNSUPPORTED FIELD ACCESS TYPE!!
       {% endif %}
@@ -78,7 +78,7 @@
 //*****************************************************************************
 `timescale 1 ns / 1 ps `default_nettype none
 
-module {{ block.name | lower }}_regs #(
+module {{ block.id | lower }}_regs #(
     parameter C_ADDR_WIDTH = {{ block.address_width }},
     parameter C_DATA_WIDTH = {{ block.width }}
 ) (
@@ -113,7 +113,7 @@ module {{ block.name | lower }}_regs #(
     // Register Interface
     //-------------------
     {% for r in block.registers %}
-    // {{ r.name }}
+    // {{ r.id }}
         {% set outer_loop = loop %}
         {% for f in r.fields %}
     {{ field_ports(r, f, loop.last and outer_loop.last) | indent(4) }}
@@ -430,7 +430,7 @@ module {{ block.name | lower }}_regs #(
   //===============
 
   {% for r in block.registers %}
-  // {{ r.name }}
+  // {{ r.id }}
 
       {% for f in r.fields %}
           {% if f.access == 'RW' %}

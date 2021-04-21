@@ -2,7 +2,7 @@ import json
 import logging
 import math
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, List
 
 logger = logging.getLogger('main')
 
@@ -32,156 +32,113 @@ class RegisterType(Enum):
     # TODO: Add more register type here
 
 
-class Field:
+class Element:
+    """
+    Basic element of other class (Field, Register, Block).
+    """
+
+    id: str
+    name: str
+    description: str
+
+    def __init__(self, d: dict):
+        self.id = d['id'].strip()  # id is required, raise error is not presents
+        self.name = d.get('name', '')
+        self.description = d.get('description', '')
+
+    def to_json(self) -> str:
+        """Serialize this object to a JSON string."""
+        s = json.dumps(self, cls=JSONEncoder, indent=2)
+        return s
+
+
+class Signal(Element):
+    """
+    Signal generated from a field.
+    """
+
+    def __init__(self, d: dict):
+        super(Signal, self).__init__(d)
+
+
+class Field(Element):
     """Register field in register."""
 
-    _name: str
-    _description: str
     _access: FieldAccess
-    _bit_offset: int
-    _bit_width: int
-    _reset: int
+    bit_offset: int
+    bit_width: int
+    reset: int
 
     def __init__(self, d: dict):
         """Build a field object from a dict."""
-        self._name = d['name'].strip()
-        self._description = d['description']
+        super(Field, self).__init__(d)
         self._access = FieldAccess(d['access'])
-        self._bit_offset = d['bit_offset']
-        self._bit_width = d['bit_width']
-        self._reset = d['reset']
+        self.bit_offset = d['bit_offset']
+        self.bit_width = d['bit_width']
+        self.reset = d['reset']
 
     @property
-    def name(self):
-        return self._name
-
-    @property
-    def description(self):
-        return self._description
+    def bit_mask(self):
+        return ((2 ** self.bit_width) - 1) * (2 ** self.bit_offset)
 
     @property
     def access(self):
         return self._access.value
 
-    @property
-    def bit_offset(self):
-        return self._bit_offset
 
-    @property
-    def bit_width(self):
-        return self._bit_width
-
-    @property
-    def bit_mask(self):
-        return ((2 ** self._bit_width) - 1) * (2 ** self._bit_offset)
-
-    @property
-    def reset(self):
-        return self._reset
-
-
-class Register:
+class Register(Element):
     """Register in register block."""
 
-    _name: str
-    _description: str
     _type: RegisterType
-    _address_offset: int
-    _fields: List[Field]
+    address_offset: int
+    fields: List[Field]
 
     def __init__(self, d: dict):
         """Build a register from dict."""
-        self._name = d['name'].strip()
-        self._description = d['description']
+        super(Register, self).__init__(d)
         self._type = RegisterType(d['type'])
-        self._address_offset = d['address_offset']
+        self.address_offset = d['address_offset']
         fs = []
         for f in d['fields']:
             fs.append(Field(f))
-        self._fields = sorted(fs, key=lambda x: x.bit_offset)
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def description(self):
-        return self._description
-
-    @property
-    def type(self):
-        return self._type
-
-    @property
-    def address_offset(self):
-        return self._address_offset
+        self.fields = sorted(fs, key=lambda x: x.bit_offset)
 
     @property
     def reset(self) -> int:
         """Get the reset value of the register."""
         a = 0
-        for f in self._fields:
+        for f in self.fields:
             a |= (f.reset << f.bit_offset)
         return a
 
     @property
-    def fields(self):
-        return self._fields
+    def type(self):
+        return self._type.value
 
-
-class Block:
+class Block(Element):
     """Register block."""
 
-    _name: str
-    _description: str
-    _width: int
-    _base_address: int
-    _registers: List[Register]
+    data_width: int
+    base_address: int
+    registers: List[Register]
 
     def __init__(self, d: dict):
         """Build a register block from a dict."""
-        self._name = d['name'].strip()
-        self._description = d['description']
-        self._width = d['width']
-        self._base_address = d['base_address']
+        super(Block, self).__init__(d)
+        self.data_width = d['data_width']
+        self.base_address = d['base_address']
         regs = []
         for r in d['registers']:
             regs.append(Register(r))
-        self._registers = sorted(regs, key=lambda x: x.address_offset)
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def description(self):
-        return self._description
-
-    @property
-    def width(self):
-        """Bit width of data."""
-        return self._width
-
-    @property
-    def base_address(self):
-        return self._base_address
+        self.registers = sorted(regs, key=lambda x: x.address_offset)
 
     @property
     def address_width(self) -> int:
-        """Minimum required address width."""
-        return math.ceil(math.log2(self._registers[-1].address_offset + 1)) + 2
-
-    @property
-    def registers(self):
-        return self._registers
-
-    def to_json(self) -> str:
-        """Serialize this object to a JSON string."""
-        s = json.dumps(self, cls=BlockEncoder, indent=2)
-        return s
+        """Minimum required address data_width."""
+        return math.ceil(math.log2(self.registers[-1].address_offset + 1)) + 2
 
 
-class BlockEncoder(json.JSONEncoder):
+class JSONEncoder(json.JSONEncoder):
     """Custom JSON Encoder for Block object."""
 
     def default(self, o: Any) -> Any:
@@ -192,8 +149,16 @@ class BlockEncoder(json.JSONEncoder):
         if isinstance(o, RegisterType):
             return o.value
 
+        if isinstance(o, Signal):
+            return {
+                'id': o.id,
+                'name': o.name,
+                'description': o.description
+            }
+
         if isinstance(o, Field):
             return {
+                'id': o.id,
                 'name': o.name,
                 'description': o.description,
                 'access': o.access,
@@ -204,6 +169,7 @@ class BlockEncoder(json.JSONEncoder):
 
         if isinstance(o, Register):
             return {
+                'id': o.id,
                 'name': o.name,
                 'description': o.description,
                 'type': o.type,
@@ -213,11 +179,19 @@ class BlockEncoder(json.JSONEncoder):
 
         if isinstance(o, Block):
             return {
+                'id': o.id,
                 'name': o.name,
                 'description': o.description,
-                'width': o.width,
+                'data_width': o.data_width,
                 'base_address': o.base_address,
                 'registers': o.registers
             }
 
-        return super(BlockEncoder, self).default(o)
+        if isinstance(o, Element):
+            return {
+                'id': o.id,
+                'name': o.name,
+                'description': o.description
+            }
+
+        return super(JSONEncoder, self).default(o)
