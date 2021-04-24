@@ -2,9 +2,14 @@ import json
 import logging
 import math
 from enum import Enum
-from typing import Any, List
+from typing import Any, List, Union
 
 logger = logging.getLogger('main')
+
+
+class SignalDirection(Enum):
+    Output = 0
+    Input = 1
 
 
 class FieldAccess(Enum):
@@ -32,62 +37,107 @@ class RegisterType(Enum):
     # TODO: Add more register type here
 
 
-class Element:
+class Element(object):
     """
-    Basic element of other class (Field, Register, Block).
+    Basic element of other regen elements.
     """
+    __slots__ = ['parent', 'content']
 
-    id: str
-    name: str
-    description: str
+    def __new__(cls, *args, **kwargs):
+        element = super(Element, cls).__new__(cls, *args, **kwargs)
+        element.parent = None
+        element.content = []
 
-    def __init__(self, d: dict):
-        self.id = d['id'].strip()  # id is required, raise error is not presents
-        self.name = d.get('name', '')
-        self.description = d.get('description', '')
-
-    def to_json(self) -> str:
+    def to_json(self):
         """Serialize this object to a JSON string."""
-        s = json.dumps(self, cls=JSONEncoder, indent=2)
-        return s
+        return {
+            'content': self.content
+        }
+
+    # Navigation
+
+    @property
+    def container(self):
+        """
+        Get the container (a ``list``) that contains this element,
+        or None if no such container exists.
+        """
+        if self.parent is not None:
+            return self.parent.content
+
+    @property
+    def index(self):
+        """Get the index of this element in parent's content."""
+        container = self.container
+        if container is not None:
+            return container.index(self)
+
+    def sibling(self, n):
+        """Return n-th sibling in parent's content"""
+        idx = self.index
+        if idx is not None:
+            idx = idx + n
+            container = self.container
+            if 0 <= idx < len(container):
+                return container[idx]
+
+    @property
+    def next(self):
+        return self.sibling(1)
+
+    @property
+    def prev(self):
+        return self.sibling(-1)
+
+    # Iteration
+
+    def walk(self):
+        for c in self.content:
+            yield c
+        yield self
 
 
 class Signal(Element):
-    """
-    Signal generated from a field.
-    """
+    """Signal generated from a field."""
+
+    __slots__ = ['id', 'bit_width', 'direction']
 
     def __init__(self, d: dict):
-        super(Signal, self).__init__(d)
+        self.id = d['id'].strip()
+        self.bit_width = d.get('bit_width', 1)
+        self.bit_width = SignalDirection(d.get('direction', 0))
 
 
 class Field(Element):
     """Register field in register."""
 
-    _access: FieldAccess
-    bit_offset: int
-    bit_width: int
-    reset: int
+    __slots__ = ['id', '_access', 'bit_offset', 'bit_width', 'reset']
 
     def __init__(self, d: dict):
         """Build a field object from a dict."""
-        super(Field, self).__init__(d)
-        self._access = FieldAccess(d['access'])
-        self.bit_offset = d['bit_offset']
-        self.bit_width = d['bit_width']
-        self.reset = d['reset']
+        self.id: str = d['id'].strip()
+        self._access = FieldAccess(d.get('access', 'RW'))
+        self.bit_offset = d.get('bit_offset', 0)
+        self.bit_width = d.get('bit_width', 1)
+        self.reset = d.get('reset', 0)
 
     @property
     def bit_mask(self):
         return ((2 ** self.bit_width) - 1) * (2 ** self.bit_offset)
 
     @property
-    def access(self):
+    def access(self) -> str:
         return self._access.value
+
+    @property
+    def signals(self):
+        return self.content
 
 
 class Register(Element):
     """Register in register block."""
+
+    __slots__ = ['id', 'name', 'description', '_type', 'address_offset']
 
     _type: RegisterType
     address_offset: int
@@ -95,13 +145,15 @@ class Register(Element):
 
     def __init__(self, d: dict):
         """Build a register from dict."""
-        super(Register, self).__init__(d)
-        self._type = RegisterType(d['type'])
-        self.address_offset = d['address_offset']
+        self.id: str = d[id]
+        self.name = d.get('name', '')
+        self.description = d.get('description', '')
+        self._type = RegisterType(d.get('type', 'NORMAL'))
+        self.address_offset = d.get('address_offset', 0)
         fs = []
         for f in d['fields']:
             fs.append(Field(f))
-        self.fields = sorted(fs, key=lambda x: x.bit_offset)
+        self.content = sorted(fs, key=lambda x: x.bit_offset)
 
     @property
     def reset(self) -> int:
@@ -114,6 +166,11 @@ class Register(Element):
     @property
     def type(self):
         return self._type.value
+
+    @property
+    def fields(self):
+        return self.content
+
 
 class Block(Element):
     """Register block."""
