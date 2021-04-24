@@ -11,13 +11,13 @@ import json
 import logging
 import os
 import sys
-from typing import Any, List, Optional
+from typing import Optional
 
 from jinja2 import Environment, PackageLoader
 
 from .drc import run_drc
 from .logging import init_logger
-from .model import Block, Field, Register
+from .model import Block
 
 __version__ = '0.1'
 
@@ -237,7 +237,8 @@ def main(argv=None):
         (name, ext) = os.path.splitext(args.output.name)
         if name == '<stdout>' or name == '<stderr>':
             args.to_format = 'sv'
-        elif ext in ['.sv', '.v', '.vhd', '.vhdl', '.h', '.vh', '.svh']:
+        elif ext in ['.sv', '.v', '.vhd', '.vhdl', '.h', '.vh', '.svh',
+                     '.json']:
             args.to_format = ext[1:]
         else:
             logger.error(f'Please specify write format using -t/--to')
@@ -288,7 +289,7 @@ def main(argv=None):
     # Render using template
 
     if args.to_format == 'json':
-        s = rm.to_json()
+        s = rm.dumps()
     else:
         s = render_template(rm, args.template)
 
@@ -296,6 +297,7 @@ def main(argv=None):
 
     args.output.write(s)
     args.output.close()
+
 
 if __name__ == '__main__':
     main(sys.argv)

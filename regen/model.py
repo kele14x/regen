@@ -2,14 +2,14 @@ import json
 import logging
 import math
 from enum import Enum
-from typing import Any, List, Union
+from typing import Any
 
 logger = logging.getLogger('main')
 
 
 class SignalDirection(Enum):
-    Output = 0
-    Input = 1
+    Output = 'output'
+    Input = 'input'
 
 
 class FieldAccess(Enum):
@@ -44,15 +44,19 @@ class Element(object):
     __slots__ = ['parent', 'content']
 
     def __new__(cls, *args, **kwargs):
-        element = super(Element, cls).__new__(cls, *args, **kwargs)
+        element = super(Element, cls).__new__(cls)
         element.parent = None
-        element.content = []
+        element.content = None
+        return element
 
     def to_json(self):
         """Serialize this object to a JSON string."""
         return {
             'content': self.content
         }
+
+    def dumps(self):
+        return json.dumps(self, cls=JSONEncoder, indent=2)
 
     # Navigation
 
@@ -100,18 +104,30 @@ class Element(object):
 class Signal(Element):
     """Signal generated from a field."""
 
-    __slots__ = ['id', 'bit_width', 'direction']
+    __slots__ = ['id', 'bit_width', '_direction']
 
     def __init__(self, d: dict):
         self.id = d['id'].strip()
         self.bit_width = d.get('bit_width', 1)
-        self.bit_width = SignalDirection(d.get('direction', 0))
+        self._direction = SignalDirection(d.get('direction', 'output'))
+
+    @property
+    def direction(self):
+        return self._direction.value
+
+    def to_json(self):
+        return {
+            'id': self.id,
+            'bit_width': self.bit_width,
+            'direction': self.direction
+        }
 
 
 class Field(Element):
     """Register field in register."""
 
-    __slots__ = ['id', '_access', 'bit_offset', 'bit_width', 'reset']
+    __slots__ = ['id', 'description', '_access', 'bit_offset', 'bit_width',
+                 'reset']
 
     def __init__(self, d: dict):
         """Build a field object from a dict."""
@@ -133,26 +149,34 @@ class Field(Element):
     def signals(self):
         return self.content
 
+    def to_json(self):
+        return {
+            'id': self.id,
+            'access': self.access,
+            'bit_offset': self.bit_offset,
+            'bit_width': self.bit_width,
+            'reset': self.reset,
+            'signals': self.signals
+        }
+
 
 class Register(Element):
     """Register in register block."""
 
     __slots__ = ['id', 'name', 'description', '_type', 'address_offset']
 
-    _type: RegisterType
-    address_offset: int
-    fields: List[Field]
-
     def __init__(self, d: dict):
         """Build a register from dict."""
-        self.id: str = d[id]
+        self.id: str = d['id']
         self.name = d.get('name', '')
         self.description = d.get('description', '')
         self._type = RegisterType(d.get('type', 'NORMAL'))
         self.address_offset = d.get('address_offset', 0)
         fs = []
         for f in d['fields']:
-            fs.append(Field(f))
+            fo = Field(f)
+            fo.parent = self
+            fs.append(fo)
         self.content = sorted(fs, key=lambda x: x.bit_offset)
 
     @property
@@ -171,28 +195,54 @@ class Register(Element):
     def fields(self):
         return self.content
 
+    def to_json(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'type': self.type,
+            'address_offset': self.address_offset,
+            'fields': self.fields
+        }
+
 
 class Block(Element):
     """Register block."""
 
-    data_width: int
-    base_address: int
-    registers: List[Register]
+    __slots__ = ['id', 'name', 'description', 'data_width', 'base_address']
 
     def __init__(self, d: dict):
         """Build a register block from a dict."""
-        super(Block, self).__init__(d)
-        self.data_width = d['data_width']
-        self.base_address = d['base_address']
-        regs = []
+        self.id = d['id']
+        self.name = d.get('name', '')
+        self.description = d.get('description', '')
+        self.data_width = d.get('data_width', 32)
+        self.base_address = d.get('base_address', 0)
+        rs = []
         for r in d['registers']:
-            regs.append(Register(r))
-        self.registers = sorted(regs, key=lambda x: x.address_offset)
+            ro = Register(r)
+            ro.parent = self
+            rs.append(ro)
+        self.content = sorted(rs, key=lambda x: x.address_offset)
 
     @property
     def address_width(self) -> int:
         """Minimum required address data_width."""
         return math.ceil(math.log2(self.registers[-1].address_offset + 1)) + 2
+
+    @property
+    def registers(self):
+        return self.content
+
+    def to_json(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'data_width': self.data_width,
+            'base_address': self.base_address,
+            'registers': self.registers
+        }
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -200,55 +250,10 @@ class JSONEncoder(json.JSONEncoder):
 
     def default(self, o: Any) -> Any:
         """Overloaded method to return an dict for json encoding."""
-        if isinstance(o, FieldAccess):
+        if isinstance(o, Enum):
             return o.value
-
-        if isinstance(o, RegisterType):
-            return o.value
-
-        if isinstance(o, Signal):
-            return {
-                'id': o.id,
-                'name': o.name,
-                'description': o.description
-            }
-
-        if isinstance(o, Field):
-            return {
-                'id': o.id,
-                'name': o.name,
-                'description': o.description,
-                'access': o.access,
-                'bit_offset': o.bit_offset,
-                'bit_width': o.bit_width,
-                'reset': o.reset
-            }
-
-        if isinstance(o, Register):
-            return {
-                'id': o.id,
-                'name': o.name,
-                'description': o.description,
-                'type': o.type,
-                'address_offset': o.address_offset,
-                'fields': o.fields
-            }
-
-        if isinstance(o, Block):
-            return {
-                'id': o.id,
-                'name': o.name,
-                'description': o.description,
-                'data_width': o.data_width,
-                'base_address': o.base_address,
-                'registers': o.registers
-            }
 
         if isinstance(o, Element):
-            return {
-                'id': o.id,
-                'name': o.name,
-                'description': o.description
-            }
+            return o.to_json()
 
         return super(JSONEncoder, self).default(o)
