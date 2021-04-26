@@ -264,6 +264,34 @@ class Block(Element):
         }
 
 
+class Circuit(Element):
+    """Circuit design, may contain one or more blocks."""
+    __slots__ = ['id', 'name', 'description']
+
+    def __init__(self, d: dict):
+        self.id = d['id']
+        self.name = d.get('name', '')
+        self.description = d.get('description', '')
+        bs = []
+        for b in d['blocks']:
+            bo = Block(b)
+            bo.parent = self
+            bs.append(bo)
+        self.content = sorted(bs, key=lambda x: x.base_address)
+
+    @property
+    def blocks(self):
+        return self.content
+
+    def to_json(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'blocks': self.blocks
+        }
+
+
 class JSONEncoder(json.JSONEncoder):
     """Custom JSON Encoder for Block object."""
 
