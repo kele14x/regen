@@ -24,18 +24,19 @@ __version__ = '0.1'
 logger = logging.getLogger('main')
 
 
-def read_json(file: io.TextIOWrapper) -> Optional[Block]:
+def read_json(file: str) -> Optional[Block]:
     """
     Deserialize JSON document to Block object.
 
     :param file: An TextIOWrapper object with read access.
     :return: Block object if success, None if any error.
     """
-    try:
-        d = json.load(file)
-    except json.JSONDecodeError as e:
-        logger.critical(f'Error when parse json file: {e}')
-        return None
+    with open(file) as f:
+        try:
+            d = json.load(f)
+        except json.JSONDecodeError as e:
+            logger.critical(f'Error when parse json file: {e}')
+            return None
 
     try:
         rm = Block(d)
@@ -55,7 +56,7 @@ def read_xlsx(file: str) -> Optional[Block]:
     raise NotImplementedError
 
 
-def read_csv(file: io.TextIOWrapper) -> Optional[Block]:
+def read_csv(file: str) -> Optional[Block]:
     """
     Parse .csv document to to Block object.
 
@@ -106,7 +107,6 @@ def parse_arguments(argv=None):
         default=sys.stdin,
         help='Read input from INPUT instead of stdin',
         nargs='?',
-        type=argparse.FileType('r', encoding='UTF-8'),
     )
 
     # If user does not specify a output file, we write to stdout.
@@ -118,7 +118,6 @@ def parse_arguments(argv=None):
         dest='output',
         help='Write output to OUTPUT instead of stdout',
         nargs='?',
-        type=argparse.FileType('w', encoding='UTF-8'),
     )
 
     # If user does not specify a log file, we write to stderr. Note stderr by
@@ -295,8 +294,8 @@ def main(argv=None):
 
     # Write file
 
-    args.output.write(s)
-    args.output.close()
+    with open(args.output, 'w') as f:
+        f.write(s)
 
 
 if __name__ == '__main__':

@@ -96,20 +96,21 @@ class Element(object):
     # Iteration
 
     def walk(self):
-        for c in self.content:
-            yield c
+        if self.content is not None:
+            for c in self.content:
+                yield from c.walk()
         yield self
 
 
 class Signal(Element):
     """Signal generated from a field."""
 
-    __slots__ = ['id', 'bit_width', '_direction']
+    __slots__ = ['suffix', 'bit_width', '_direction']
 
-    def __init__(self, d: dict):
-        self.id = d['id'].strip()
-        self.bit_width = d.get('bit_width', 1)
-        self._direction = SignalDirection(d.get('direction', 'output'))
+    def __init__(self, suffix='', bit_width=1, direction='output'):
+        self.suffix = suffix
+        self.bit_width = bit_width
+        self._direction = SignalDirection(direction)
 
     @property
     def direction(self):
@@ -117,7 +118,7 @@ class Signal(Element):
 
     def to_json(self):
         return {
-            'id': self.id,
+            'suffix': self.suffix,
             'bit_width': self.bit_width,
             'direction': self.direction
         }
@@ -136,6 +137,24 @@ class Field(Element):
         self.bit_offset = d.get('bit_offset', 0)
         self.bit_width = d.get('bit_width', 1)
         self.reset = d.get('reset', 0)
+
+        if self._access == FieldAccess.READ_WRITE:
+            s = [
+                Signal(suffix='', bit_width=self.bit_width, direction='output')
+            ]
+        elif self._access == FieldAccess.READ_ONLY:
+            s = [
+                Signal(suffix='', bit_width=self.bit_width, direction='input')
+            ]
+        elif self._access == FieldAccess.READ_WRITE_2WAY:
+            s = [
+                Signal(suffix='out', bit_width=self.bit_width,
+                       direction='output'),
+                Signal(suffix='in', bit_width=self.bit_width, direction='input')
+            ]
+        else:
+            s = None
+        self.content = s
 
     @property
     def bit_mask(self):
