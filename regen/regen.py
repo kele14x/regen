@@ -16,7 +16,7 @@ from jinja2 import Environment, PackageLoader
 
 from .drc import run_drc
 from .logging import init_logger
-from .model import Block
+from .elements import Block
 
 __version__ = '0.1'
 

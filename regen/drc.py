@@ -1,7 +1,7 @@
 import logging
 import string
 
-from .model import Block
+from .elements import Block
 
 char_set = string.ascii_letters + string.digits + '_'
 

@@ -1,14 +1,23 @@
+"""Base module contains basic Element class for use."""
 import json
+from typing import Union
 
 
 class Element(object):
-    """
-    Basic element of other regen elements.
-    """
+    """Basic element of other regen elements."""
 
     __slots__ = ['id', 'parent', 'content']
+    id: str
+    parent: Union['Element', None]
+    content: Union[list, None]
 
     def __new__(cls, *args, **kwargs):
+        """
+        Initialize newly created ``Element`` instance.
+
+        This is just to initialize ``self.parent`` and ``self.content`` to
+        ``None``.
+        """
         elem = super(Element, cls).__new__(cls)
         elem.id = ''
         elem.parent = None
@@ -16,17 +25,25 @@ class Element(object):
         return elem
 
     def to_json(self):
-        """Serialize this object to a JSON string."""
+        """Return a ``dict`` contains needed attribute, which is suitable for JSON serialize."""
         return {
             'id': self.id,
             'content': self.content
         }
 
-    def symbol(self, n=0, sep='_'):
+    def symbol(self, n=0, sep='_') -> str:
+        """
+        Return the symbol represent of the element based on ``id``.
+
+        ``n`` controls how many ancestors' id to be append to ``self.id``.
+
+        ``seq`` is the separator between each ancestors' id.
+        """
         s = [elem.id for elem in self.ancestors(n)]
         return sep.join(filter(None, reversed(s))).lower()
 
     def dumps(self):
+        """Serialize this element to JSON formatted ``str``."""
         return json.dumps(self, cls=JSONEncoder, indent=2)
 
     # Navigation
@@ -34,21 +51,25 @@ class Element(object):
     @property
     def container(self):
         """
-        Get the container (a ``list``) that contains this element,
-        or None if no such container exists.
+        Get the container that contains this element.
+
+        Usually the container is a ``list``. If no such container exists,
+        ``None`` is returned.
+
+        Don't confuse this property with ``parent``.
         """
         if self.parent is not None:
             return self.parent.content
 
     @property
     def index(self):
-        """Get the index of this element in parent's content."""
+        """Get the index of this element in it's container."""
         container = self.container
         if container is not None:
             return container.index(self)
 
     def sibling(self, n):
-        """Return n-th sibling in parent's content"""
+        """Return n-th sibling in parent's content."""
         idx = self.index
         if idx is not None:
             idx = idx + n
@@ -58,23 +79,27 @@ class Element(object):
 
     @property
     def next(self):
+        """Return the next sibling element."""
         return self.sibling(1)
 
     @property
     def prev(self):
+        """Return the previous sibling element."""
         return self.sibling(-1)
 
-    def ancestor(self, n: int):
+    def ancestor(self, n: int) -> Union['Element', None]:
         """
         Return the n-th ancestor.
-        For example, ``elem.ancestor(1) == elem.parent``.
+
+        For example, ``elem.ancestor(1) == elem.parent``, and
+        ``elem.ancestor(0)`` is element itself.
         """
         if n < 0:
             raise ValueError(f'Ancestor index needs to be non negative, '
                              f'received {n}')
         if n == 0:
             return self
-        if n == 1:
+        if n == 1 or self.parent is None:
             return self.parent
         else:
             return self.parent.ancestor(n - 1)
@@ -83,8 +108,10 @@ class Element(object):
 
     def walk(self):
         """
-        Return a generator that iterates all children elements (including
-        children of child) and self.
+        Return a generator that iterates all children elements.
+
+        This function will integrate all children elements including
+        children of child and self.
         """
         if self.content is not None:
             for c in self.content:
@@ -92,15 +119,23 @@ class Element(object):
         yield self
 
     def ancestors(self, n: int):
-        """
-        Return a generator that iterates to n-th ancestor.
-        """
-        for i in range(0, n + 1):
-            yield self.ancestor(i)
+        """Return a generator that iterates to n-th ancestor."""
+        if n < 0:
+            raise ValueError(f'Ancestors number needs to be non negative, '
+                             f'received {n}')
+        yield self
+        if n == 0:
+            return
+        if n == 1:
+            if self.parent is None:
+                return
+            else:
+                yield from self.ancestors(n-1)
 
     def children(self, n: int):
         """
         Return a generator that iterates all n-th child element.
+
         For example, ``elem.children(1)`` wil iterates over ``elem.content``.
         """
         if n < 1:
