@@ -1,8 +1,8 @@
-import json
 import logging
 import math
 from enum import Enum
-from typing import Any
+
+from .base import Element
 
 logger = logging.getLogger('main')
 
@@ -35,71 +35,6 @@ class RegisterType(Enum):
     NORMAL = 'NORMAL'  # Normal register
     # INTERRUPT = 'INTERRUPT'  # Interrupt register
     # TODO: Add more register type here
-
-
-class Element(object):
-    """
-    Basic element of other regen elements.
-    """
-    __slots__ = ['parent', 'content']
-
-    def __new__(cls, *args, **kwargs):
-        element = super(Element, cls).__new__(cls)
-        element.parent = None
-        element.content = None
-        return element
-
-    def to_json(self):
-        """Serialize this object to a JSON string."""
-        return {
-            'content': self.content
-        }
-
-    def dumps(self):
-        return json.dumps(self, cls=JSONEncoder, indent=2)
-
-    # Navigation
-
-    @property
-    def container(self):
-        """
-        Get the container (a ``list``) that contains this element,
-        or None if no such container exists.
-        """
-        if self.parent is not None:
-            return self.parent.content
-
-    @property
-    def index(self):
-        """Get the index of this element in parent's content."""
-        container = self.container
-        if container is not None:
-            return container.index(self)
-
-    def sibling(self, n):
-        """Return n-th sibling in parent's content"""
-        idx = self.index
-        if idx is not None:
-            idx = idx + n
-            container = self.container
-            if 0 <= idx < len(container):
-                return container[idx]
-
-    @property
-    def next(self):
-        return self.sibling(1)
-
-    @property
-    def prev(self):
-        return self.sibling(-1)
-
-    # Iteration
-
-    def walk(self):
-        if self.content is not None:
-            for c in self.content:
-                yield from c.walk()
-        yield self
 
 
 class Signal(Element):
@@ -290,17 +225,3 @@ class Circuit(Element):
             'description': self.description,
             'blocks': self.blocks
         }
-
-
-class JSONEncoder(json.JSONEncoder):
-    """Custom JSON Encoder for Block object."""
-
-    def default(self, o: Any) -> Any:
-        """Overloaded method to return an dict for json encoding."""
-        if isinstance(o, Enum):
-            return o.value
-
-        if isinstance(o, Element):
-            return o.to_json()
-
-        return super(JSONEncoder, self).default(o)
