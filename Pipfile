@@ -7,6 +7,7 @@ name = "pypi"
 jinja2 = "*"
 pandas = "*"
 xlrd = "*"
+pytest = "*"
 
 [dev-packages]
 
