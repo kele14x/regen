@@ -10,6 +10,7 @@ logger = logging.getLogger('main')
 class SignalDirection(Enum):
     Output = 'output'
     Input = 'input'
+    Internal = 'internal'
 
 
 class FieldAccess(Enum):
@@ -40,12 +41,13 @@ class RegisterType(Enum):
 class Signal(Element):
     """Signal generated from a field."""
 
-    __slots__ = ['suffix', 'bit_width', '_direction']
+    __slots__ = ['bit_width', '_direction']
 
-    def __init__(self, suffix='', bit_width=1, direction='output'):
-        self.suffix = suffix
+    def __init__(self, id='', bit_width=1, direction='output', parent=None):
+        self.id = id
         self.bit_width = bit_width
         self._direction = SignalDirection(direction)
+        self.parent = parent
 
     @property
     def direction(self):
@@ -53,7 +55,7 @@ class Signal(Element):
 
     def to_json(self):
         return {
-            'suffix': self.suffix,
+            'id': self.id,
             'bit_width': self.bit_width,
             'direction': self.direction
         }
@@ -75,20 +77,24 @@ class Field(Element):
 
         if self._access == FieldAccess.READ_WRITE:
             s = [
-                Signal(suffix='', bit_width=self.bit_width, direction='output')
+                Signal(id='', bit_width=self.bit_width, direction='output',
+                       parent=self)
             ]
         elif self._access == FieldAccess.READ_ONLY:
             s = [
-                Signal(suffix='', bit_width=self.bit_width, direction='input')
+                Signal(id='', bit_width=self.bit_width, direction='input',
+                       parent=self)
             ]
         elif self._access == FieldAccess.READ_WRITE_2WAY:
             s = [
-                Signal(suffix='out', bit_width=self.bit_width,
-                       direction='output'),
-                Signal(suffix='in', bit_width=self.bit_width, direction='input')
+                Signal(id='out', bit_width=self.bit_width,
+                       direction='output', parent=self),
+                Signal(id='in', bit_width=self.bit_width, direction='input',
+                       parent=self)
             ]
         else:
-            s = None
+            raise ValueError(f'Unsupported field access type '
+                             f'{self._access.value}')
         self.content = s
 
     @property

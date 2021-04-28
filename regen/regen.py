@@ -6,7 +6,6 @@ Usage:
 """
 
 import argparse
-import io
 import json
 import logging
 import os
@@ -221,7 +220,7 @@ def main(argv=None):
     # Guess Input Format
 
     if args.from_format is None:
-        (name, ext) = os.path.splitext(args.input.name)
+        (name, ext) = os.path.splitext(args.input)
         if name == '<stdin>':
             args.from_format = 'json'
         elif ext in ['.json', '.xlsx', '.xls', '.csv']:
@@ -294,8 +293,11 @@ def main(argv=None):
 
     # Write file
 
-    with open(args.output, 'w') as f:
-        f.write(s)
+    if args.output is sys.stdout:
+        args.output.write(s)
+    else:
+        with open(args.output, 'w') as f:
+            f.write(s)
 
 
 if __name__ == '__main__':
