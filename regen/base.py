@@ -31,7 +31,7 @@ class Element(object):
             'content': self.content
         }
 
-    def symbol(self, n=0, sep='_') -> str:
+    def symbol(self, n=-1, sep='_') -> str:
         """
         Return the symbol represent of the element based on ``id``.
 
@@ -120,17 +120,14 @@ class Element(object):
 
     def ancestors(self, n: int):
         """Return a generator that iterates to n-th ancestor."""
-        if n < 0:
-            raise ValueError(f'Ancestors number needs to be non negative, '
-                             f'received {n}')
         yield self
         if n == 0:
             return
-        if n == 1:
+        else:
             if self.parent is None:
                 return
             else:
-                yield from self.ancestors(n-1)
+                yield from self.parent.ancestors(n-1)
 
     def children(self, n: int):
         """
