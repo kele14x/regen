@@ -24,7 +24,7 @@ class Element(object):
         elem.content = None
         return elem
 
-    def to_json(self):
+    def to_dict(self):
         """Return a ``dict`` contains needed attribute, which is suitable for JSON serialize."""
         return {
             'id': self.id,
@@ -41,10 +41,6 @@ class Element(object):
         """
         s = [elem.id for elem in self.ancestors(n)]
         return sep.join(filter(None, reversed(s))).lower()
-
-    def dumps(self):
-        """Serialize this element to JSON formatted ``str``."""
-        return json.dumps(self, cls=JSONEncoder, indent=2)
 
     # Navigation
 
@@ -146,14 +142,3 @@ class Element(object):
         else:
             for c in self.content:
                 yield from c.children(n - 1)
-
-
-class JSONEncoder(json.JSONEncoder):
-    """Custom JSON Encoder for Block object."""
-
-    def default(self, o):
-        """Overloaded method to return an dict for json encoding."""
-        if isinstance(o, Element):
-            return o.to_json()
-
-        return super(JSONEncoder, self).default(o)

@@ -43,8 +43,8 @@ class Signal(Element):
 
     __slots__ = ['bit_width', '_direction']
 
-    def __init__(self, id='', bit_width=1, direction='output', parent=None):
-        self.id = id
+    def __init__(self, id_='', bit_width=1, direction='output', parent=None):
+        self.id = id_
         self.bit_width = bit_width
         self._direction = SignalDirection(direction)
         self.parent = parent
@@ -53,7 +53,7 @@ class Signal(Element):
     def direction(self):
         return self._direction.value
 
-    def to_json(self):
+    def to_dict(self):
         return {
             'id': self.id,
             'bit_width': self.bit_width,
@@ -64,32 +64,32 @@ class Signal(Element):
 class Field(Element):
     """Register field in register."""
 
-    __slots__ = ['id', 'description', '_access', 'bit_offset', 'bit_width',
+    __slots__ = ['description', '_access', 'bit_offset', 'bit_width',
                  'reset']
 
-    def __init__(self, d: dict):
+    def __init__(self, id_='', access='RW', bit_offset=0, bit_width=1, reset=0):
         """Build a field object from a dict."""
-        self.id: str = d['id'].strip()
-        self._access = FieldAccess(d.get('access', 'RW'))
-        self.bit_offset = d.get('bit_offset', 0)
-        self.bit_width = d.get('bit_width', 1)
-        self.reset = d.get('reset', 0)
+        self.id: str = id_
+        self._access = FieldAccess(access)
+        self.bit_offset = bit_offset
+        self.bit_width = bit_width
+        self.reset = reset
 
         if self._access == FieldAccess.READ_WRITE:
             s = [
-                Signal(id='', bit_width=self.bit_width, direction='output',
+                Signal(id_='', bit_width=self.bit_width, direction='output',
                        parent=self)
             ]
         elif self._access == FieldAccess.READ_ONLY:
             s = [
-                Signal(id='', bit_width=self.bit_width, direction='input',
+                Signal(id_='', bit_width=self.bit_width, direction='input',
                        parent=self)
             ]
         elif self._access == FieldAccess.READ_WRITE_2WAY:
             s = [
-                Signal(id='out', bit_width=self.bit_width,
+                Signal(id_='out', bit_width=self.bit_width,
                        direction='output', parent=self),
-                Signal(id='in', bit_width=self.bit_width, direction='input',
+                Signal(id_='in', bit_width=self.bit_width, direction='input',
                        parent=self)
             ]
         else:
@@ -109,7 +109,7 @@ class Field(Element):
     def signals(self):
         return self.content
 
-    def to_json(self):
+    def to_dict(self):
         return {
             'id': self.id,
             'access': self.access,
@@ -123,21 +123,20 @@ class Field(Element):
 class Register(Element):
     """Register in register block."""
 
-    __slots__ = ['id', 'name', 'description', '_type', 'address_offset']
+    __slots__ = ['name', 'description', '_type', 'address_offset']
 
-    def __init__(self, d: dict):
+    def __init__(self, id_='', name='', description='', type_='NORMAL', address_offset=0, fields=None):
         """Build a register from dict."""
-        self.id: str = d['id']
-        self.name = d.get('name', '')
-        self.description = d.get('description', '')
-        self._type = RegisterType(d.get('type', 'NORMAL'))
-        self.address_offset = d.get('address_offset', 0)
-        fs = []
-        for f in d['fields']:
-            fo = Field(f)
-            fo.parent = self
-            fs.append(fo)
-        self.content = sorted(fs, key=lambda x: x.bit_offset)
+        self.id: str = id_
+        self.name = name
+        self.description = description
+        self._type = RegisterType(type_)
+        self.address_offset = address_offset
+        if fields is None:
+            fields = []
+        for f in fields:
+            f.parent = self
+        self.content = sorted(fields, key=lambda x: x.bit_offset)
 
     @property
     def reset(self) -> int:
@@ -155,7 +154,10 @@ class Register(Element):
     def fields(self):
         return self.content
 
-    def to_json(self):
+    def signals(self):
+        return self.children(2)
+
+    def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
@@ -169,21 +171,20 @@ class Register(Element):
 class Block(Element):
     """Register block."""
 
-    __slots__ = ['id', 'name', 'description', 'data_width', 'base_address']
+    __slots__ = ['name', 'description', 'data_width', 'base_address']
 
-    def __init__(self, d: dict):
+    def __init__(self, id_='', name='', description='', data_width=32, base_address=0, registers=None):
         """Build a register block from a dict."""
-        self.id = d['id']
-        self.name = d.get('name', '')
-        self.description = d.get('description', '')
-        self.data_width = d.get('data_width', 32)
-        self.base_address = d.get('base_address', 0)
-        rs = []
-        for r in d['registers']:
-            ro = Register(r)
-            ro.parent = self
-            rs.append(ro)
-        self.content = sorted(rs, key=lambda x: x.address_offset)
+        self.id = id_
+        self.name = name
+        self.description = description
+        self.data_width = data_width
+        self.base_address = base_address
+        if registers is None:
+            registers = []
+        for r in registers:
+            r.parent = self
+        self.content = sorted(registers, key=lambda x: x.address_offset)
 
     @property
     def address_width(self) -> int:
@@ -194,7 +195,13 @@ class Block(Element):
     def registers(self):
         return self.content
 
-    def to_json(self):
+    def fields(self):
+        return self.children(2)
+
+    def signals(self):
+        return self.children(3)
+
+    def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
@@ -207,24 +214,23 @@ class Block(Element):
 
 class Circuit(Element):
     """Circuit design, may contain one or more blocks."""
-    __slots__ = ['id', 'name', 'description']
+    __slots__ = ['name', 'description']
 
-    def __init__(self, d: dict):
-        self.id = d['id']
-        self.name = d.get('name', '')
-        self.description = d.get('description', '')
-        bs = []
-        for b in d['blocks']:
-            bo = Block(b)
-            bo.parent = self
-            bs.append(bo)
-        self.content = sorted(bs, key=lambda x: x.base_address)
+    def __init__(self, id_='', name='', description='', blocks=None):
+        self.id = id_
+        self.name = name
+        self.description = description
+        if blocks is None:
+            blocks = []
+        for b in blocks:
+            b.parent = self
+        self.content = sorted(blocks, key=lambda x: x.base_address)
 
     @property
     def blocks(self):
         return self.content
 
-    def to_json(self):
+    def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,

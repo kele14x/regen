@@ -23,48 +23,6 @@ __version__ = '0.1'
 logger = logging.getLogger('main')
 
 
-def read_json(file: str) -> Optional[Block]:
-    """
-    Deserialize JSON document to Block object.
-
-    :param file: An TextIOWrapper object with read access.
-    :return: Block object if success, None if any error.
-    """
-    with open(file) as f:
-        try:
-            d = json.load(f)
-        except json.JSONDecodeError as e:
-            logger.critical(f'Error when parse json file: {e}')
-            return None
-
-    try:
-        rm = Block(d)
-    except KeyError as e:
-        logger.critical(f'Error in {e}')
-        return None
-    return rm
-
-
-def read_xlsx(file: str) -> Optional[Block]:
-    """
-    Parse excel (.xlsx) document to Block object.
-
-    :param file: An TextIOWrapper object with read access.
-    :return: Block object if success, None if any error.
-    """
-    raise NotImplementedError
-
-
-def read_csv(file: str) -> Optional[Block]:
-    """
-    Parse .csv document to to Block object.
-
-    :param file: An TextIOWrapper object with read access.
-    :return: Block object if success, None if any error.
-    """
-    raise NotImplementedError
-
-
 def render_template(rm: Block, template: str, ) -> str:
     """
     Render Block using a specified template.
