@@ -6,10 +6,12 @@ import logging
 import sys
 from typing import Optional, Union
 
-from .base import Element
-from .elements import Circuit, Block, Register, Field
+from jinja2 import Environment, PackageLoader
 
-__all__ = ['read_json', 'read_csv', 'read_xlsx']
+from .base import Element
+from .elements import Circuit, Block, Register, Field, RegisterType, FieldAccess
+
+__all__ = ['read_json', 'read_csv', 'read_xlsx', 'dump_json', 'render_template']
 
 logger = logging.getLogger('main')
 
@@ -27,22 +29,41 @@ def json_deserialize(d: dict):
     ``dict`` to any kind of element since the function it self does not know the hierarchy depth in JSON.
     """
     if 'blocks' in d:
-        id_ = d.get('id', '')
+        id = d.get('id', '')
         name = d.get('name', '')
         blocks = d['blocks']
-        circuit = Circuit(d, id_=id_, name=name, blocks=blocks)
+        circuit = Circuit(id=id, name=name, blocks=blocks)
         return circuit
 
     if 'registers' in d:
-        block = Block(d)
+        id = d.get('id', '')
+        name = d.get('name', '')
+        description = d.get('description', '')
+        data_width = d.get('data_width', 32)
+        base_address = d.get('base_address', 0)
+        registers = d['registers']
+        block = Block(id=id, name=name, description=description, data_width=data_width, base_address=base_address,
+                      registers=registers)
         return block
 
     if 'fields' in d:
-        register = Register(d)
+        id = d.get('id', '')
+        name = d.get('name', '')
+        description = d.get('description', '')
+        type = RegisterType(d.get('type', 'NORMAL'))
+        address_offset = d.get('address_offset', 0)
+        fields = d['fields']
+        register = Register(id=id, name=name, description=description, type=type, address_offset=address_offset,
+                            fields=fields)
         return register
 
     if 'access' in d:
-        field = Field(d)
+        id = d.get('id', [])
+        access = FieldAccess(d.get('access', 'RW'))
+        bit_offset = d.get('bit_offset', 0)
+        bit_width = d.get('bit_width', 1)
+        reset = d.get('reset', 0)
+        field = Field(id=id, access=access, bit_offset=bit_offset, bit_width=bit_width, reset=reset)
         return field
 
 
@@ -90,4 +111,31 @@ def dump_json(elem: Element, output_stream=None):
     if output_stream is None:
         output_stream = sys.stdout
 
-    output_stream.write(json.dumps(elem, default=json_serializer, indent=2))
+    json.dump(elem, output_stream, default=json_serializer, indent=2)
+
+
+# Template Output
+# ---------------
+
+def render_template(blk: Block, template: str, output_stream=None):
+    """
+    Render Block using a specified template.
+    """
+    if not isinstance(blk, Block):
+        raise TypeError(f'You can only render template on a Block object, received {type(blk).__name__}')
+
+    # Configure and build jinja2 template
+    env = Environment(
+        loader=PackageLoader('regen', 'templates'),
+        autoescape=False,
+        trim_blocks=True,
+        lstrip_blocks=True,
+        keep_trailing_newline=True,
+    )
+    template = env.get_template(template)
+
+    if output_stream is None:
+        output_stream = sys.stdout
+
+    s = template.render(block=blk)
+    output_stream.write(s)

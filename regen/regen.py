@@ -6,41 +6,17 @@ Usage:
 """
 
 import argparse
-import json
 import logging
 import os
 import sys
-from typing import Optional
-
-from jinja2 import Environment, PackageLoader
 
 from .drc import run_drc
+from .io import read_json, read_xlsx, read_csv, render_template, dump_json
 from .logging import init_logger
-from .elements import Block
 
 __version__ = '0.1'
 
 logger = logging.getLogger('main')
-
-
-def render_template(rm: Block, template: str, ) -> str:
-    """
-    Render Block using a specified template.
-
-    :param rm: Block object
-    :param template: Template name
-    :return: rendered string
-    """
-    # Configure and build jinja2 template
-    env = Environment(
-        loader=PackageLoader('regen', 'templates'),
-        autoescape=False,
-        trim_blocks=True,
-        lstrip_blocks=True,
-        keep_trailing_newline=True,
-    )
-    template = env.get_template(template)
-    return template.render(block=rm)
 
 
 def parse_arguments(argv=None):
@@ -61,7 +37,6 @@ def parse_arguments(argv=None):
     # chain this script with other tools support stdin and stdout.
     parser.add_argument(
         'input',
-        default=sys.stdin,
         help='Read input from INPUT instead of stdin',
         nargs='?',
     )
@@ -71,7 +46,6 @@ def parse_arguments(argv=None):
     # will appear on terminal with stdout.
     parser.add_argument(
         '-o', '--output',
-        default=sys.stdout,
         dest='output',
         help='Write output to OUTPUT instead of stdout',
         nargs='?',
@@ -81,11 +55,9 @@ def parse_arguments(argv=None):
     # default goes to terminal together with stdout.
     parser.add_argument(
         '-l', '--log',
-        default=sys.stderr,
         dest='log',
         help='Write log to LOG instead of stderr',
         nargs='?',
-        type=argparse.FileType('w', encoding='UTF-8'),
     )
 
     # Format Options
@@ -167,7 +139,7 @@ def parse_arguments(argv=None):
 def main(argv=None):
     """Will be called if script is executed as script."""
     # skip first argument, which is path to script self
-    args = parse_arguments(argv[1:])
+    args = parse_arguments(argv)
 
     init_logger('main', level=args.verbosity)
 
@@ -179,9 +151,7 @@ def main(argv=None):
 
     if args.from_format is None:
         (name, ext) = os.path.splitext(args.input)
-        if name == '<stdin>':
-            args.from_format = 'json'
-        elif ext in ['.json', '.xlsx', '.xls', '.csv']:
+        if ext in ['.json', '.xlsx', '.xls', '.csv']:
             args.from_format = ext[1:]
         else:
             logger.error(f'Please specify read format using -f/--from')
@@ -190,11 +160,9 @@ def main(argv=None):
     # Guess Output Format
 
     if args.to_format is None:
-        (name, ext) = os.path.splitext(args.output.name)
-        if name == '<stdout>' or name == '<stderr>':
-            args.to_format = 'sv'
-        elif ext in ['.sv', '.v', '.vhd', '.vhdl', '.h', '.vh', '.svh',
-                     '.json']:
+        (name, ext) = os.path.splitext(args.output)
+        if ext in ['.sv', '.v', '.vhd', '.vhdl', '.h', '.vh', '.svh',
+                   '.json']:
             args.to_format = ext[1:]
         else:
             logger.error(f'Please specify write format using -t/--to')
@@ -225,38 +193,35 @@ def main(argv=None):
     # Read Input File
 
     if args.from_format == 'json':
-        rm = read_json(args.input)
+        blk = read_json(args.input)
     elif args.from_format == 'xlsx' or args.from_format == 'xls':
-        rm = read_xlsx(args.input)
+        blk = read_xlsx(args.input)
     elif args.from_format == 'csv':
-        rm = read_csv(args.input)
+        blk = read_csv(args.input)
     else:
         logger.error(f'Unsupported read format: {args.from_format}')
         sys.exit(2)
 
-    if not rm:
+    if not blk:
         logger.error(f'Error reading input file, exit...')
         sys.exit(2)
 
     # Run DRC
 
-    run_drc(rm)
+    run_drc(blk)
 
     # Render using template
 
+    if args.output is None:
+        fp = sys.stdout
+    else:
+        fp = open(args.output, 'w')
+
     if args.to_format == 'json':
-        s = rm.dumps()
+        dump_json(blk, fp)
     else:
-        s = render_template(rm, args.template)
-
-    # Write file
-
-    if args.output is sys.stdout:
-        args.output.write(s)
-    else:
-        with open(args.output, 'w') as f:
-            f.write(s)
+        render_template(blk, args.template, fp)
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()

@@ -31,3 +31,8 @@ def test_children():
 def test_symbol():
     symbols = [s.symbol(sep='.') for s in b.walk()]
     assert symbols[0] == 'simple_gpio.gpio_data.val.out'
+    assert symbols[-1] == 'simple_gpio'
+
+
+def test_regen():
+    regen.main('-q -o ./output/simple_gpio.sv ./tests/simple_gpio.json'.split())

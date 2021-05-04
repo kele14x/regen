@@ -1,6 +1,7 @@
 import logging
 import math
 from enum import Enum
+from typing import List
 
 from .base import Element
 
@@ -43,11 +44,10 @@ class Signal(Element):
 
     __slots__ = ['bit_width', '_direction']
 
-    def __init__(self, id_='', bit_width=1, direction='output', parent=None):
-        self.id = id_
+    def __init__(self, id='', bit_width=1, direction='output'):
+        self.id = id
         self.bit_width = bit_width
         self._direction = SignalDirection(direction)
-        self.parent = parent
 
     @property
     def direction(self):
@@ -61,41 +61,43 @@ class Signal(Element):
         }
 
 
+def signals_of_access(access: FieldAccess, bit_width: int) -> List[Signal]:
+    if access == FieldAccess.READ_WRITE:
+        return [
+            Signal(id='', bit_width=bit_width, direction='output')
+        ]
+
+    if access == FieldAccess.READ_ONLY:
+        return [
+            Signal(id='', bit_width=bit_width, direction='input')
+        ]
+
+    if access == FieldAccess.READ_WRITE_2WAY:
+        return [
+            Signal(id='out', bit_width=bit_width, direction='output'),
+            Signal(id='in', bit_width=bit_width, direction='input')
+        ]
+
+    raise ValueError(f'Unsupported field access type {access.value}')
+
+
 class Field(Element):
     """Register field in register."""
 
     __slots__ = ['description', '_access', 'bit_offset', 'bit_width',
                  'reset']
 
-    def __init__(self, id_='', access='RW', bit_offset=0, bit_width=1, reset=0):
+    def __init__(self, id='', access='RW', bit_offset=0, bit_width=1, reset=0):
         """Build a field object from a dict."""
-        self.id: str = id_
+        self.id: str = id
         self._access = FieldAccess(access)
         self.bit_offset = bit_offset
         self.bit_width = bit_width
         self.reset = reset
-
-        if self._access == FieldAccess.READ_WRITE:
-            s = [
-                Signal(id_='', bit_width=self.bit_width, direction='output',
-                       parent=self)
-            ]
-        elif self._access == FieldAccess.READ_ONLY:
-            s = [
-                Signal(id_='', bit_width=self.bit_width, direction='input',
-                       parent=self)
-            ]
-        elif self._access == FieldAccess.READ_WRITE_2WAY:
-            s = [
-                Signal(id_='out', bit_width=self.bit_width,
-                       direction='output', parent=self),
-                Signal(id_='in', bit_width=self.bit_width, direction='input',
-                       parent=self)
-            ]
-        else:
-            raise ValueError(f'Unsupported field access type '
-                             f'{self._access.value}')
-        self.content = s
+        signals = signals_of_access(self._access, self.bit_width)
+        for s in signals:
+            s.parent = self
+        self.content = signals
 
     @property
     def bit_mask(self):
@@ -125,12 +127,12 @@ class Register(Element):
 
     __slots__ = ['name', 'description', '_type', 'address_offset']
 
-    def __init__(self, id_='', name='', description='', type_='NORMAL', address_offset=0, fields=None):
+    def __init__(self, id='', name='', description='', type='NORMAL', address_offset=0, fields=None):
         """Build a register from dict."""
-        self.id: str = id_
+        self.id: str = id
         self.name = name
         self.description = description
-        self._type = RegisterType(type_)
+        self._type = RegisterType(type)
         self.address_offset = address_offset
         if fields is None:
             fields = []
@@ -173,9 +175,9 @@ class Block(Element):
 
     __slots__ = ['name', 'description', 'data_width', 'base_address']
 
-    def __init__(self, id_='', name='', description='', data_width=32, base_address=0, registers=None):
+    def __init__(self, id='', name='', description='', data_width=32, base_address=0, registers=None):
         """Build a register block from a dict."""
-        self.id = id_
+        self.id = id
         self.name = name
         self.description = description
         self.data_width = data_width
@@ -216,8 +218,8 @@ class Circuit(Element):
     """Circuit design, may contain one or more blocks."""
     __slots__ = ['name', 'description']
 
-    def __init__(self, id_='', name='', description='', blocks=None):
-        self.id = id_
+    def __init__(self, id='', name='', description='', blocks=None):
+        self.id = id
         self.name = name
         self.description = description
         if blocks is None:
