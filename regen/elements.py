@@ -21,10 +21,10 @@ class FieldAccess(Enum):
     This controls the input/output direction and the hdl logic of a field.
     """
 
-    READ_WRITE = 'RW'  # Output, read written value
-    READ_ONLY = 'RO'  # Input, write has no effect
-    READ_WRITE_2WAY = 'RW2'  # Output and input two way
-    # TODO: Add more field access type here
+    RW = 'RW'  # Output, read written value
+    RO = 'RO'  # Input, write has no effect
+    RW2 = 'RW2'  # Output and input two way
+    INT = 'INT'  # Only for register with interrupt type
 
 
 class RegisterType(Enum):
@@ -35,8 +35,7 @@ class RegisterType(Enum):
     """
 
     NORMAL = 'NORMAL'  # Normal register
-    # INTERRUPT = 'INTERRUPT'  # Interrupt register
-    # TODO: Add more register type here
+    INTERRUPT = 'INTERRUPT'  # Interrupt register
 
 
 class Signal(Element):
@@ -62,20 +61,26 @@ class Signal(Element):
 
 
 def signals_of_access(access: FieldAccess, bit_width: int) -> List[Signal]:
-    if access == FieldAccess.READ_WRITE:
+    if access == FieldAccess.RW:
         return [
             Signal(id='', bit_width=bit_width, direction='output')
         ]
 
-    if access == FieldAccess.READ_ONLY:
+    if access == FieldAccess.RO:
         return [
             Signal(id='', bit_width=bit_width, direction='input')
         ]
 
-    if access == FieldAccess.READ_WRITE_2WAY:
+    if access == FieldAccess.RW2:
         return [
             Signal(id='out', bit_width=bit_width, direction='output'),
             Signal(id='in', bit_width=bit_width, direction='input')
+        ]
+
+    if access == FieldAccess.INT:
+        return [
+            Signal(id='', bit_width=bit_width, direction='input'),
+            Signal(id='_')
         ]
 
     raise ValueError(f'Unsupported field access type {access.value}')
@@ -149,6 +154,10 @@ class Register(Element):
         return a
 
     @property
+    def address(self):
+        return self.address_offset * self.parent.address_step
+
+    @property
     def type(self):
         return self._type.value
 
@@ -192,6 +201,11 @@ class Block(Element):
     def address_width(self) -> int:
         """Minimum required address data_width."""
         return math.ceil(math.log2(self.registers[-1].address_offset + 1)) + 2
+
+    @property
+    def address_step(self) -> int:
+        """Address step size."""
+        return math.floor(self.data_width / 8)
 
     @property
     def registers(self):

@@ -12,14 +12,12 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //*****************************************************************************
 
-{% for r in block.registers %}
-    {% for f in r.fields %}
+{% for f in block.fields() %}
 /* Type = {{ f.access }} */
-#define {{ r.id }}_{{ f.id }}_ADDR {{ '0x%x' % r.address_offset * 4 }} /* {{ r.address_offset * 4 }} */
-#define {{ r.id }}_{{ f.id }}_MASK {{ '0x%x' % f.bit_mask }} /* {{ f.bit_mask }} */
-#define {{ r.id }}_{{ f.id }}_OFFSET {{ '0x%x' % f.bit_offset }} /* {{ f.bit_offset }} */
-#define {{ r.id }}_{{ f.id }}_WIDTH {{ '0x%x' % f.bit_width }} /* {{ f.bit_width }} */
-#define {{ r.id }}_{{ f.id }}_DEFAULT {{ '0x%x' % f.reset }} /* {{ f.reset }} */
+#define {{ f.symbol() | upper }}_ADDR {{ '0x%x' % f.parent.address }} /* {{ f.parent.address }} */
+#define {{ f.symbol() | upper }}_MASK {{ '0x%x' % f.bit_mask }} /* {{ f.bit_mask }} */
+#define {{ f.symbol() | upper }}_OFFSET {{ '0x%x' % f.bit_offset }} /* {{ f.bit_offset }} */
+#define {{ f.symbol() | upper }}_WIDTH {{ '0x%x' % f.bit_width }} /* {{ f.bit_width }} */
+#define {{ f.symbol() | upper }}_DEFAULT {{ '0x%x' % f.reset }} /* {{ f.reset }} */
 
-    {% endfor -%}
-{%- endfor -%}
+{% endfor -%}

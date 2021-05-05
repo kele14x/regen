@@ -1,0 +1,102 @@
+{
+  "id": "GPIO_INTERRUPT",
+  "name": "GPIO Controller with Interrupt",
+  "description": "AXI GPIO controller with interrupt support from REGEN.",
+  "data_width": 32,
+  "base_address": 0,
+  "registers": [
+    {
+      "id": "GPIO_DATA",
+      "name": "GPIO Data Register",
+      "description": "Channel 1 AXI GPIO Data Register.",
+      "type": "NORMAL",
+      "address_offset": 0,
+      "fields": [
+        {
+          "id": "VAL",
+          "description": "",
+          "access": "RW2",
+          "bit_width": 32,
+          "bit_offset": 0,
+          "reset": 0
+        }
+      ]
+    },
+    {
+      "id": "GPIO_TRI",
+      "name": "GPIO Tri-state Control Register",
+      "description": "Channel 1 AXI GPIO 3-state Control Register.",
+      "type": "NORMAL",
+      "address_offset": 1,
+      "fields": [
+        {
+          "id": "VAL",
+          "description": "",
+          "access": "RW",
+          "bit_width": 32,
+          "bit_offset": 0,
+          "reset": 0
+        }
+      ]
+    },
+    {
+      "id": "GPIO2_DATA",
+      "name": "GPIO2 Data Register",
+      "description": "Channel 2 AXI GPIO Data Register.",
+      "type": "NORMAL",
+      "address_offset": 2,
+      "fields": [
+        {
+          "id": "VAL",
+          "description": "",
+          "access": "RW2",
+          "bit_width": 32,
+          "bit_offset": 0,
+          "reset": 0
+        }
+      ]
+    },
+    {
+      "id": "GPIO2_TRI",
+      "name": "GPIO2 Tri-state Control Register",
+      "description": "Channel 2 AXI GPIO 3-state Control Register.",
+      "type": "NORMAL",
+      "address_offset": 3,
+      "fields": [
+        {
+          "id": "VAL",
+          "description": "",
+          "access": "RW",
+          "bit_width": 32,
+          "bit_offset": 0,
+          "reset": 0
+        }
+      ]
+    },
+    {
+      "id": "GPIO_STAT",
+      "name": "GPIO Status Register",
+      "description": "Global status interrupt register.",
+      "type": "INTERRUPT",
+      "address_offset": 71,
+      "fields": [
+        {
+          "id": "CH0",
+          "description": "Channel 0 interrupt status",
+          "access": "INT",
+          "bit_width": 1,
+          "bit_offset": 0,
+          "reset": 0
+        },
+        {
+          "id": "CH1",
+          "description": "Channel 1 interrupt status",
+          "access": "INT",
+          "bit_width": 1,
+          "bit_offset": 1,
+          "reset": 0
+        }
+      ]
+    }
+  ]
+}

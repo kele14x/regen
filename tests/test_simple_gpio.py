@@ -36,3 +36,4 @@ def test_symbol():
 
 def test_regen():
     regen.main('-q -o ./output/simple_gpio.sv ./tests/simple_gpio.json'.split())
+    regen.main('-q -o ./output/simple_gpio.h ./tests/simple_gpio.json'.split())
