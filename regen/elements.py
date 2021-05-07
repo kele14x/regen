@@ -1,3 +1,4 @@
+import copy
 import logging
 import math
 from enum import Enum
@@ -9,17 +10,13 @@ logger = logging.getLogger('main')
 
 
 class SignalDirection(Enum):
-    Output = 'output'
-    Input = 'input'
-    Internal = 'internal'
+    OUTPUT = 'output'
+    INPUT = 'input'
+    INTERNAL = 'internal'
 
 
 class FieldAccess(Enum):
-    """
-    Access type of a field.
-
-    This controls the input/output direction and the hdl logic of a field.
-    """
+    """Access type of a field, it controls the hdl logic genrated."""
 
     RW = 'RW'  # Output, read written value
     RO = 'RO'  # Input, write has no effect
@@ -28,20 +25,23 @@ class FieldAccess(Enum):
 
 
 class RegisterType(Enum):
-    """
-    Type of a register.
-
-    Currently only normal register is supported.
-    """
+    """Type of a register."""
 
     NORMAL = 'NORMAL'  # Normal register
     INTERRUPT = 'INTERRUPT'  # Interrupt register
+    MEMORY = 'MEMORY'  # A memory mapped region
 
 
 class Signal(Element):
     """Signal generated from a field."""
 
     __slots__ = ['bit_width', '_direction']
+
+    content: None
+    parent: 'Field'
+
+    bit_width: int
+    _direction: SignalDirection
 
     def __init__(self, id='', bit_width=1, direction='output'):
         self.id = id
@@ -63,24 +63,33 @@ class Signal(Element):
 def signals_of_access(access: FieldAccess, bit_width: int) -> List[Signal]:
     if access == FieldAccess.RW:
         return [
-            Signal(id='', bit_width=bit_width, direction='output')
+            Signal(id='', bit_width=bit_width, direction='output'),
+            Signal(id='oreg', bit_width=bit_width, direction='internal')
         ]
 
     if access == FieldAccess.RO:
         return [
-            Signal(id='', bit_width=bit_width, direction='input')
+            Signal(id='', bit_width=bit_width, direction='input'),
+            Signal(id='ireg', bit_width=bit_width, direction='internal')
         ]
 
     if access == FieldAccess.RW2:
         return [
             Signal(id='out', bit_width=bit_width, direction='output'),
-            Signal(id='in', bit_width=bit_width, direction='input')
+            Signal(id='oreg', bit_width=bit_width, direction='internal'),
+            Signal(id='in', bit_width=bit_width, direction='input'),
+            Signal(id='ireg', bit_width=bit_width, direction='internal')
         ]
 
     if access == FieldAccess.INT:
         return [
             Signal(id='', bit_width=bit_width, direction='input'),
-            Signal(id='_')
+            Signal(id='trap', bit_width=bit_width, direction='internal'),
+            Signal(id='mask', bit_width=bit_width, direction='internal'),
+            Signal(id='force', bit_width=bit_width, direction='internal'),
+            Signal(id='trig', bit_width=bit_width, direction='internal'),
+            Signal(id='int', bit_width=bit_width, direction='internal'),
+            Signal(id='dbg', bit_width=bit_width, direction='internal'),
         ]
 
     raise ValueError(f'Unsupported field access type {access.value}')
@@ -92,6 +101,9 @@ class Field(Element):
     __slots__ = ['description', '_access', 'bit_offset', 'bit_width',
                  'reset']
 
+    content: List[Signal]
+    parent: 'Register'
+
     def __init__(self, id='', access='RW', bit_offset=0, bit_width=1, reset=0):
         """Build a field object from a dict."""
         self.id: str = id
@@ -99,10 +111,6 @@ class Field(Element):
         self.bit_offset = bit_offset
         self.bit_width = bit_width
         self.reset = reset
-        signals = signals_of_access(self._access, self.bit_width)
-        for s in signals:
-            s.parent = self
-        self.content = signals
 
     @property
     def bit_mask(self):
@@ -112,9 +120,9 @@ class Field(Element):
     def access(self) -> str:
         return self._access.value
 
-    @property
     def signals(self):
-        return self.content
+        # TODO: refactor using generator
+        raise NotImplementedError
 
     def to_dict(self):
         return {
@@ -132,9 +140,17 @@ class Register(Element):
 
     __slots__ = ['name', 'description', '_type', 'address_offset']
 
+    content: List[Field]
+    parent: 'Block'
+
+    name: str
+    description: str
+    _type: RegisterType
+    address_offset: int
+
     def __init__(self, id='', name='', description='', type='NORMAL', address_offset=0, fields=None):
         """Build a register from dict."""
-        self.id: str = id
+        self.id = id
         self.name = name
         self.description = description
         self._type = RegisterType(type)
@@ -149,7 +165,7 @@ class Register(Element):
     def reset(self) -> int:
         """Get the reset value of the register."""
         a = 0
-        for f in self.fields:
+        for f in self.content:
             a |= (f.reset << f.bit_offset)
         return a
 
@@ -161,12 +177,30 @@ class Register(Element):
     def type(self):
         return self._type.value
 
-    @property
+    def expand(self):
+        """
+        Return a generator that expand this register descriptor to scalar register(s).
+
+        Depend on the type of register, the expanded result maybe single or multi elements.
+        """
+        if self._type == RegisterType.NORMAL:
+            yield self
+        elif self._type == RegisterType.INTERRUPT:
+            names = ['', 'TRIG', 'TRAP', 'MASK', 'FORCE', 'DBG']
+            for i, name in enumerate(names):
+                r = copy.copy(self)
+                r.name = r.name + name
+                r.address_offset = r.address_offset + i
+                yield r
+        elif self._type == RegisterType.MEMORY:
+            yield self
+
     def fields(self):
-        return self.content
+        for r in self.expand():
+            yield from r.content
 
     def signals(self):
-        return self.children(2)
+        raise NotImplementedError
 
     def to_dict(self):
         return {
@@ -184,6 +218,14 @@ class Block(Element):
 
     __slots__ = ['name', 'description', 'data_width', 'base_address']
 
+    content: List[Register]
+    parent: 'Circuit'
+
+    name: str
+    description: str
+    data_width: int
+    base_address: int
+
     def __init__(self, id='', name='', description='', data_width=32, base_address=0, registers=None):
         """Build a register block from a dict."""
         self.id = id
@@ -200,22 +242,26 @@ class Block(Element):
     @property
     def address_width(self) -> int:
         """Minimum required address data_width."""
-        return math.ceil(math.log2(self.registers[-1].address_offset + 1)) + 2
+        return math.ceil(math.log2(self.content[-1].address_offset + 1)) + 2
 
     @property
     def address_step(self) -> int:
         """Address step size."""
         return math.floor(self.data_width / 8)
 
-    @property
     def registers(self):
-        return self.content
+        for r in self.content:
+            yield from r.expand()
 
     def fields(self):
-        return self.children(2)
+        for r in self.content:
+            yield from r.fields()
+
+    def ports(self):
+        raise NotImplementedError
 
     def signals(self):
-        return self.children(3)
+        raise NotImplementedError
 
     def to_dict(self):
         return {

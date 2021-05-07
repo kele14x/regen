@@ -22,12 +22,9 @@ def check_id_normalized(ids: str) -> bool:
     return True
 
 
-def drc_normalized_id(b: Block):
-    check_id_normalized(b.id)
-    for r in b.registers:
-        check_id_normalized(r.id)
-        for f in r.fields:
-            check_id_normalized(f.id)
+def drc_normalized_id(blk: Block):
+    for elem in blk.walk():
+        check_id_normalized(elem.id)
 
 
 def run_drc(b: Block):
