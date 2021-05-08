@@ -24,7 +24,7 @@ def check_id_normalized(ids: str) -> bool:
 
 def drc_normalized_id(blk: Block):
     for elem in blk.walk():
-        check_id_normalized(elem.id)
+        check_id_normalized(elem.eid)
 
 
 def run_drc(b: Block):

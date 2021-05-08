@@ -18,22 +18,22 @@ def test_read_block_ancestors():
 
 
 def test_walk():
-    assert sum(1 for _ in b.walk()) == 28
+    assert sum(1 for _ in b.walk()) == 17
 
 
 def test_children():
     assert sum(1 for _ in b.children(1)) == 7
     assert sum(1 for _ in b.children(2)) == 9
-    assert sum(1 for _ in b.children(3)) == 11
-    assert sum(1 for _ in b.children(4)) == 0
+    assert sum(1 for _ in b.children(3)) == 0
 
 
 def test_symbol():
     symbols = [s.symbol(sep='.') for s in b.walk()]
-    assert symbols[0] == 'simple_gpio.gpio_data.val.out'
+    assert symbols[0] == 'simple_gpio.gpio_data.val'
     assert symbols[-1] == 'simple_gpio'
 
 
 def test_regen():
-    regen.main('-q -o ./output/simple_gpio.sv ./tests/simple_gpio.json'.split())
-    regen.main('-q -o ./output/simple_gpio.h ./tests/simple_gpio.json'.split())
+    regen.main('-q -o ./output/simple_gpio.json ./tests/simple_gpio.json'.split())
+    # regen.main('-q -o ./output/simple_gpio.sv ./tests/simple_gpio.json'.split())
+    # regen.main('-q -o ./output/simple_gpio.h ./tests/simple_gpio.json'.split())

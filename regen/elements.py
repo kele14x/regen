@@ -2,7 +2,7 @@ import copy
 import logging
 import math
 from enum import Enum
-from typing import List
+from typing import Optional
 
 from .base import Element
 
@@ -38,13 +38,13 @@ class Signal(Element):
     __slots__ = ['bit_width', '_direction']
 
     content: None
-    parent: 'Field'
+    parent: Optional['Field']
 
     bit_width: int
     _direction: SignalDirection
 
-    def __init__(self, id='', bit_width=1, direction='output'):
-        self.id = id
+    def __init__(self, eid='', bit_width=1, direction='output'):
+        self.eid = eid
         self.bit_width = bit_width
         self._direction = SignalDirection(direction)
 
@@ -54,42 +54,42 @@ class Signal(Element):
 
     def to_dict(self):
         return {
-            'id': self.id,
+            'id': self.eid,
             'bit_width': self.bit_width,
             'direction': self.direction
         }
 
 
-def signals_of_access(access: FieldAccess, bit_width: int) -> List[Signal]:
+def signals_of_access(access: FieldAccess, bit_width: int) -> list[Signal]:
     if access == FieldAccess.RW:
         return [
-            Signal(id='', bit_width=bit_width, direction='output'),
-            Signal(id='oreg', bit_width=bit_width, direction='internal')
+            Signal(eid='', bit_width=bit_width, direction='output'),
+            Signal(eid='oreg', bit_width=bit_width, direction='internal')
         ]
 
     if access == FieldAccess.RO:
         return [
-            Signal(id='', bit_width=bit_width, direction='input'),
-            Signal(id='ireg', bit_width=bit_width, direction='internal')
+            Signal(eid='', bit_width=bit_width, direction='input'),
+            Signal(eid='ireg', bit_width=bit_width, direction='internal')
         ]
 
     if access == FieldAccess.RW2:
         return [
-            Signal(id='out', bit_width=bit_width, direction='output'),
-            Signal(id='oreg', bit_width=bit_width, direction='internal'),
-            Signal(id='in', bit_width=bit_width, direction='input'),
-            Signal(id='ireg', bit_width=bit_width, direction='internal')
+            Signal(eid='out', bit_width=bit_width, direction='output'),
+            Signal(eid='oreg', bit_width=bit_width, direction='internal'),
+            Signal(eid='in', bit_width=bit_width, direction='input'),
+            Signal(eid='ireg', bit_width=bit_width, direction='internal')
         ]
 
     if access == FieldAccess.INT:
         return [
-            Signal(id='', bit_width=bit_width, direction='input'),
-            Signal(id='trap', bit_width=bit_width, direction='internal'),
-            Signal(id='mask', bit_width=bit_width, direction='internal'),
-            Signal(id='force', bit_width=bit_width, direction='internal'),
-            Signal(id='trig', bit_width=bit_width, direction='internal'),
-            Signal(id='int', bit_width=bit_width, direction='internal'),
-            Signal(id='dbg', bit_width=bit_width, direction='internal'),
+            Signal(eid='', bit_width=bit_width, direction='input'),
+            Signal(eid='trap', bit_width=bit_width, direction='internal'),
+            Signal(eid='mask', bit_width=bit_width, direction='internal'),
+            Signal(eid='force', bit_width=bit_width, direction='internal'),
+            Signal(eid='trig', bit_width=bit_width, direction='internal'),
+            Signal(eid='int', bit_width=bit_width, direction='internal'),
+            Signal(eid='dbg', bit_width=bit_width, direction='internal'),
         ]
 
     raise ValueError(f'Unsupported field access type {access.value}')
@@ -101,12 +101,13 @@ class Field(Element):
     __slots__ = ['description', '_access', 'bit_offset', 'bit_width',
                  'reset']
 
-    content: List[Signal]
-    parent: 'Register'
+    content: list[Signal]
+    parent: Optional['Register']
 
-    def __init__(self, id='', access='RW', bit_offset=0, bit_width=1, reset=0):
+    def __init__(self, eid='', description='', access='RW', bit_offset=0, bit_width=1, reset=0):
         """Build a field object from a dict."""
-        self.id: str = id
+        self.eid: str = eid
+        self.description = description
         self._access = FieldAccess(access)
         self.bit_offset = bit_offset
         self.bit_width = bit_width
@@ -120,18 +121,14 @@ class Field(Element):
     def access(self) -> str:
         return self._access.value
 
-    def signals(self):
-        # TODO: refactor using generator
-        raise NotImplementedError
-
     def to_dict(self):
         return {
-            'id': self.id,
+            'id': self.eid,
+            'description': self.description,
             'access': self.access,
             'bit_offset': self.bit_offset,
             'bit_width': self.bit_width,
-            'reset': self.reset,
-            'signals': self.signals
+            'reset': self.reset
         }
 
 
@@ -140,17 +137,17 @@ class Register(Element):
 
     __slots__ = ['name', 'description', '_type', 'address_offset']
 
-    content: List[Field]
-    parent: 'Block'
+    content: list[Field]
+    parent: Optional['Block']
 
     name: str
     description: str
     _type: RegisterType
     address_offset: int
 
-    def __init__(self, id='', name='', description='', type='NORMAL', address_offset=0, fields=None):
+    def __init__(self, eid='', name='', description='', type='NORMAL', address_offset=0, fields=None):
         """Build a register from dict."""
-        self.id = id
+        self.eid = eid
         self.name = name
         self.description = description
         self._type = RegisterType(type)
@@ -168,10 +165,6 @@ class Register(Element):
         for f in self.content:
             a |= (f.reset << f.bit_offset)
         return a
-
-    @property
-    def address(self):
-        return self.address_offset * self.parent.address_step
 
     @property
     def type(self):
@@ -195,16 +188,13 @@ class Register(Element):
         elif self._type == RegisterType.MEMORY:
             yield self
 
+    @property
     def fields(self):
-        for r in self.expand():
-            yield from r.content
-
-    def signals(self):
-        raise NotImplementedError
+        return self.content
 
     def to_dict(self):
         return {
-            'id': self.id,
+            'id': self.eid,
             'name': self.name,
             'description': self.description,
             'type': self.type,
@@ -218,17 +208,17 @@ class Block(Element):
 
     __slots__ = ['name', 'description', 'data_width', 'base_address']
 
-    content: List[Register]
-    parent: 'Circuit'
+    content: list[Register]
+    parent: Optional['Circuit']
 
     name: str
     description: str
     data_width: int
     base_address: int
 
-    def __init__(self, id='', name='', description='', data_width=32, base_address=0, registers=None):
+    def __init__(self, eid='', name='', description='', data_width=32, base_address=0, registers=None):
         """Build a register block from a dict."""
-        self.id = id
+        self.eid = eid
         self.name = name
         self.description = description
         self.data_width = data_width
@@ -249,23 +239,13 @@ class Block(Element):
         """Address step size."""
         return math.floor(self.data_width / 8)
 
+    @property
     def registers(self):
-        for r in self.content:
-            yield from r.expand()
-
-    def fields(self):
-        for r in self.content:
-            yield from r.fields()
-
-    def ports(self):
-        raise NotImplementedError
-
-    def signals(self):
-        raise NotImplementedError
+        return self.content
 
     def to_dict(self):
         return {
-            'id': self.id,
+            'id': self.eid,
             'name': self.name,
             'description': self.description,
             'data_width': self.data_width,
@@ -278,8 +258,14 @@ class Circuit(Element):
     """Circuit design, may contain one or more blocks."""
     __slots__ = ['name', 'description']
 
-    def __init__(self, id='', name='', description='', blocks=None):
-        self.id = id
+    content: list[Block]
+    parent: None
+
+    name: str
+    description: str
+
+    def __init__(self, eid='', name='', description='', blocks=None):
+        self.eid = eid
         self.name = name
         self.description = description
         if blocks is None:
@@ -294,7 +280,7 @@ class Circuit(Element):
 
     def to_dict(self):
         return {
-            'id': self.id,
+            'id': self.eid,
             'name': self.name,
             'description': self.description,
             'blocks': self.blocks
