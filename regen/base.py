@@ -1,5 +1,4 @@
 """Base module contains basic Element class for use."""
-import json
 from typing import Union
 
 
@@ -24,6 +23,10 @@ class Element(object):
         elem.content = None
         return elem
 
+    @property
+    def id(self):
+        return self.eid
+
     def to_dict(self):
         """
         Return a ``dict`` contains key attributes.
@@ -47,7 +50,7 @@ class Element(object):
         ``sep`` is the separator between each ancestors' ID.
         """
         s = [elem.eid for elem in self.ancestors(n)]
-        return sep.join(filter(None, reversed(s))).lower()
+        return sep.join(filter(None, reversed(s)))
 
     # Navigation
 

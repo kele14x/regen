@@ -1,0 +1,21 @@
+Block
+=====
+
+ID: {{ block.id }}
+Name: {{ block.name }}
+Description: {{ block.description }}
+Data width: {{ block.data_width }}
+Address width: {{ block.address_width }}
+{% if block.data_width == 32 -%}
+Base Address: 0x{{ '%08x' % block.base_address }}
+{% else -%}
+Base Address: 0x{{ '%016x' % block.base_address }}
+{%- endif %}
+Module IRQ ports:
+  {% for p in block.irq_ports() %}
+  {{ p.symbol(1) | lower }}
+  {% endfor %}
+Module normal ports:
+  {% for p in block.ports() %}
+  {{ p.symbol(2) | lower }}
+  {% endfor %}

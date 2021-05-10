@@ -75,7 +75,7 @@ def parse_arguments(argv=None):
     # template is chosen based on the output format.
     parser.add_argument(
         '-t', '--to',
-        choices=['json', 'sv', 'v', 'vhd', 'vhdl', 'h', 'vh', 'svh'],
+        choices=['json', 'sv', 'v', 'vhd', 'vhdl', 'h', 'vh', 'svh', 'txt'],
         dest='to_format',
         help='Specify output format',
     )
@@ -162,7 +162,7 @@ def main(argv=None):
     if args.to_format is None:
         (name, ext) = os.path.splitext(args.output)
         if ext in ['.sv', '.v', '.vhd', '.vhdl', '.h', '.vh', '.svh',
-                   '.json']:
+                   '.json', '.txt']:
             args.to_format = ext[1:]
         else:
             logger.error(f'Please specify write format using -t/--to')
@@ -183,6 +183,8 @@ def main(argv=None):
             args.template = 'verilog_header.vh.j2'
         elif args.to_format == 'svh':
             args.template = 'systemverilog_header.svh.j2'
+        elif args.to_format == 'txt':
+            args.template = 'plain.txt.j2'
         elif args.to_format == 'json':
             # JSON conversion is not done using template
             pass

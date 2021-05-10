@@ -10,18 +10,18 @@ logger = logging.getLogger('main')
 
 
 class SignalDirection(Enum):
-    OUTPUT = 'output'
     INPUT = 'input'
     INTERNAL = 'internal'
+    OUTPUT = 'output'
 
 
 class FieldAccess(Enum):
     """Access type of a field, it controls the hdl logic genrated."""
 
-    RW = 'RW'  # Output, read written value
-    RO = 'RO'  # Input, write has no effect
-    RW2 = 'RW2'  # Output and input two way
     INT = 'INT'  # Only for register with interrupt type
+    RO = 'RO'  # Input, write has no effect
+    RW = 'RW'  # Output, read written value
+    RW2 = 'RW2'  # Output and input two way
 
 
 class RegisterType(Enum):
@@ -43,10 +43,11 @@ class Signal(Element):
     bit_width: int
     _direction: SignalDirection
 
-    def __init__(self, eid='', bit_width=1, direction='output'):
+    def __init__(self, eid='', bit_width=1, direction='output', parent=None):
         self.eid = eid
         self.bit_width = bit_width
         self._direction = SignalDirection(direction)
+        self.parent = parent
 
     @property
     def direction(self):
@@ -170,6 +171,25 @@ class Register(Element):
     def type(self):
         return self._type.value
 
+    @property
+    def fields(self):
+        return self.content
+
+    def ports(self):
+        """Return a generator that iterates all ports caused by fields"""
+        for f in self.fields:
+            if f.access == FieldAccess.INT.value:
+                yield Signal(eid='', direction='input', parent=f)
+            elif f.access == FieldAccess.RO.value:
+                yield Signal(eid='', direction='input', parent=f)
+            elif f.access == FieldAccess.RW.value:
+                yield Signal(eid='', direction='output', parent=f)
+            elif f.access == FieldAccess.RW2.value:
+                yield Signal(eid='in', direction='input', parent=f)
+                yield Signal(eid='out', direction='output', parent=f)
+            else:
+                raise ValueError
+
     def expand(self):
         """
         Return a generator that expand this register descriptor to scalar register(s).
@@ -187,16 +207,6 @@ class Register(Element):
                 yield r
         elif self._type == RegisterType.MEMORY:
             yield self
-
-    @property
-    def fields(self):
-        return self.content
-
-    def registers(self):
-        pass
-
-    def signals(self):
-        return self.children(2)
 
     def to_dict(self):
         return {
@@ -238,23 +248,31 @@ class Block(Element):
     @property
     def address_width(self) -> int:
         """Minimum required address data_width."""
-        return math.ceil(math.log2(self.content[-1].address_offset + 1)) + 2
+        return math.ceil(math.log2(self.registers[-1].address_offset + 1)) + 2
 
     @property
     def address_gap(self) -> int:
         """Address gap size, i.e. minimum address difference between two registers"""
         return math.floor(self.data_width / 8)
 
+    @property
     def registers(self):
-        """
-        Return a generator that iterates all register in this block.
+        """Block.registers is mirror of Block.content"""
+        return self.content
 
-        Instead of return ``self.content`` for iteration, it's a generator, since some register need a generate to get
-        their all "expanded" content. For example, interrupt register has 5 additional registers associated with it.
-        See ``regen.elements.Register.registers()`` for more details.
-        """
-        for r in self.content:
-            yield from r.registers()
+    def irq_ports(self):
+        """Return a generator that iterates all ports of module."""
+        # Ports caused by registers
+        for r in self.registers:
+            if r.type == RegisterType.INTERRUPT.value:
+                s = Signal(eid='irq')
+                s.parent = r
+                yield s
+
+    def ports(self):
+        # Ports caused by fields are returned by register.ports
+        for r in self.registers:
+            yield from r.ports()
 
     def to_dict(self):
         return {
@@ -289,6 +307,7 @@ class Circuit(Element):
 
     @property
     def blocks(self):
+        """Circuit.blocks is mirror of Circuit.content"""
         return self.content
 
     def to_dict(self):
