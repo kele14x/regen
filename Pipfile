@@ -7,9 +7,10 @@ name = "pypi"
 jinja2 = "*"
 pandas = "*"
 xlrd = "*"
-pytest = "*"
 
 [dev-packages]
+pytest = "*"
+pylint = "*"
 
 [requires]
 python_version = "3.9"

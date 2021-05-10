@@ -6,8 +6,8 @@ from typing import Union
 class Element(object):
     """Basic element of other regen elements."""
 
-    __slots__ = ['id', 'parent', 'content']
-    id: str
+    __slots__ = ['eid', 'parent', 'content']
+    eid: str  # Element ID
     parent: Union['Element', None]
     content: Union[list, None]
 
@@ -19,27 +19,34 @@ class Element(object):
         ``None``.
         """
         elem = super(Element, cls).__new__(cls)
-        elem.id = ''
+        elem.eid = ''
         elem.parent = None
         elem.content = None
         return elem
 
     def to_dict(self):
-        """Return a ``dict`` contains needed attribute, which is suitable for JSON serialize."""
+        """
+        Return a ``dict`` contains key attributes.
+
+        The key attributes are necessary and sufficient attributes to rebuild
+        this element.
+
+        This is mainly intent for JSON serialize.
+        """
         return {
-            'id': self.id,
+            'id': self.eid,
             'content': self.content
         }
 
     def symbol(self, n=-1, sep='_') -> str:
         """
-        Return the symbol represent of the element based on ``id``.
+        Return the symbol represent of the element based on ``eid``.
 
-        ``n`` controls how many ancestors' id to be append to ``self.id``.
+        ``n`` controls how many ancestors' ID to be append to ``self.eid``.
 
-        ``seq`` is the separator between each ancestors' id.
+        ``sep`` is the separator between each ancestors' ID.
         """
-        s = [elem.id for elem in self.ancestors(n)]
+        s = [elem.eid for elem in self.ancestors(n)]
         return sep.join(filter(None, reversed(s))).lower()
 
     # Navigation
@@ -91,11 +98,12 @@ class Element(object):
         ``elem.ancestor(0)`` is element itself.
         """
         if n < 0:
+            # To prevent infinite iteration
             raise ValueError(f'Ancestor index needs to be non negative, '
                              f'received {n}')
-        if n == 0:
+        elif n == 0:
             return self
-        if n == 1 or self.parent is None:
+        elif n == 1 or self.parent is None:
             return self.parent
         else:
             return self.parent.ancestor(n - 1)
@@ -104,10 +112,10 @@ class Element(object):
 
     def walk(self):
         """
-        Return a generator that iterates all children elements.
+        Return a generator that iterates all children elements and self.
 
         This function will integrate all children elements including
-        children of child and self.
+        children of children and finally self.
         """
         if self.content is not None:
             for c in self.content:
@@ -115,7 +123,7 @@ class Element(object):
         yield self
 
     def ancestors(self, n: int):
-        """Return a generator that iterates to n-th ancestor."""
+        """Return a generator that iterates from self to n-th ancestor."""
         yield self
         if n == 0:
             return
@@ -127,18 +135,21 @@ class Element(object):
 
     def children(self, n: int):
         """
-        Return a generator that iterates n-th level child elements.
+        Return a generator that iterates all children of n-th generation.
 
-        For example, ``for e in elem.children(1)`` will iterates over ``elem.content``.
+        For example, ``elem.children(1)`` will iterate over ``elem.content``,
+        and ``elem.children(0)`` will iterate only self.
         """
-        if n < 1:
-            raise ValueError(f'Children index needs to be positive, received '
-                             f'{n}')
-        if self.content is None:
+        if n < 0:
+            # To prevent infinite iteration
+            raise ValueError(f'Children index needs to be non negative, '
+                             f'received {n}')
+        if n == 0:
+            yield self
+        elif self.content is None:
             return
-        if n == 1:
-            for c in self.content:
-                yield c
+        elif n == 1:
+            yield from self.content
         else:
             for c in self.content:
                 yield from c.children(n - 1)

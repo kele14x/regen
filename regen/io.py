@@ -29,41 +29,42 @@ def json_deserialize(d: dict):
     ``dict`` to any kind of element since the function it self does not know the hierarchy depth in JSON.
     """
     if 'blocks' in d:
-        id = d.get('id', '')
+        eid = d.get('id', '')
         name = d.get('name', '')
         blocks = d['blocks']
-        circuit = Circuit(id=id, name=name, blocks=blocks)
+        circuit = Circuit(eid=eid, name=name, blocks=blocks)
         return circuit
 
     if 'registers' in d:
-        id = d.get('id', '')
+        eid = d.get('id', '')
         name = d.get('name', '')
         description = d.get('description', '')
         data_width = d.get('data_width', 32)
         base_address = d.get('base_address', 0)
         registers = d['registers']
-        block = Block(id=id, name=name, description=description, data_width=data_width, base_address=base_address,
+        block = Block(eid=eid, name=name, description=description, data_width=data_width, base_address=base_address,
                       registers=registers)
         return block
 
     if 'fields' in d:
-        id = d.get('id', '')
+        eid = d.get('id', '')
         name = d.get('name', '')
         description = d.get('description', '')
         type = RegisterType(d.get('type', 'NORMAL'))
         address_offset = d.get('address_offset', 0)
         fields = d['fields']
-        register = Register(id=id, name=name, description=description, type=type, address_offset=address_offset,
+        register = Register(eid=eid, name=name, description=description, type=type, address_offset=address_offset,
                             fields=fields)
         return register
 
     if 'access' in d:
-        id = d.get('id', [])
+        eid = d.get('id', '')
+        description = d.get('description', '')
         access = FieldAccess(d.get('access', 'RW'))
         bit_offset = d.get('bit_offset', 0)
         bit_width = d.get('bit_width', 1)
         reset = d.get('reset', 0)
-        field = Field(id=id, access=access, bit_offset=bit_offset, bit_width=bit_width, reset=reset)
+        field = Field(eid=eid, description=description, access=access, bit_offset=bit_offset, bit_width=bit_width, reset=reset)
         return field
 
 
@@ -98,7 +99,7 @@ def read_csv(file: str) -> Optional[Block]:
 # -----------
 
 def json_serializer(elem: Element):
-    elem.to_dict()
+    return elem.to_dict()
 
 
 def dump_json(elem: Element, output_stream=None):

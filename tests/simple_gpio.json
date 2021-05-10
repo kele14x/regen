@@ -14,11 +14,10 @@
       "fields": [
         {
           "id": "VAL",
-          "name": "",
           "description": "",
           "access": "RW2",
-          "bit_width": 32,
           "bit_offset": 0,
+          "bit_width": 32,
           "reset": 0
         }
       ]
@@ -32,11 +31,10 @@
       "fields": [
         {
           "id": "VAL",
-          "name": "",
           "description": "",
           "access": "RW",
-          "bit_width": 32,
           "bit_offset": 0,
+          "bit_width": 32,
           "reset": 0
         }
       ]
@@ -50,11 +48,10 @@
       "fields": [
         {
           "id": "VAL",
-          "name": "",
           "description": "",
           "access": "RW2",
-          "bit_width": 32,
           "bit_offset": 0,
+          "bit_width": 32,
           "reset": 0
         }
       ]
@@ -68,11 +65,10 @@
       "fields": [
         {
           "id": "VAL",
-          "name": "",
           "description": "",
           "access": "RW",
-          "bit_width": 32,
           "bit_offset": 0,
+          "bit_width": 32,
           "reset": 0
         }
       ]
@@ -83,15 +79,13 @@
       "description": "Global Interrupt Enable Register.",
       "type": "NORMAL",
       "address_offset": 71,
-      "size": 32,
       "fields": [
         {
           "id": "GIE",
-          "name": "",
           "description": "",
           "access": "RW",
-          "bit_width": 1,
           "bit_offset": 31,
+          "bit_width": 1,
           "reset": 0
         }
       ]
@@ -105,20 +99,18 @@
       "fields": [
         {
           "id": "IS0",
-          "name": "",
           "description": "Channel 1 Interrupt Status\r\n0: No Channel 1 input interrupt\r\n1: Channel 1 input interrupt",
           "access": "RO",
-          "bit_width": 1,
           "bit_offset": 0,
+          "bit_width": 1,
           "reset": 0
         },
         {
           "id": "IS1",
-          "name": "",
           "description": "Channel 2 Interrupt Status\r\n0: No Channel 1 input interrupt\r\n1: Channel 1 input interrupt",
           "access": "RO",
-          "bit_width": 1,
           "bit_offset": 1,
+          "bit_width": 1,
           "reset": 0
         }
       ]
@@ -132,20 +124,18 @@
       "fields": [
         {
           "id": "IE0",
-          "name": "",
           "description": "Enable Channel 1 Interrupt.\r\n0 = Disabled (masked)\r\n1 = Enabled",
           "access": "RW",
-          "bit_width": 1,
           "bit_offset": 0,
+          "bit_width": 1,
           "reset": 0
         },
         {
           "id": "IE1",
-          "name": "",
           "description": "Enable Channel 2 Interrupt.\r\n0 = Disabled (masked)\r\n1 = Enabled",
           "access": "RW",
-          "bit_width": 1,
           "bit_offset": 1,
+          "bit_width": 1,
           "reset": 0
         }
       ]

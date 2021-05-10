@@ -215,7 +215,7 @@ def main(argv=None):
     if args.output is None:
         fp = sys.stdout
     else:
-        fp = open(args.output, 'w')
+        fp = open(args.output, 'w', encoding='UTF-8')
 
     if args.to_format == 'json':
         dump_json(blk, fp)
