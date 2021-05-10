@@ -127,9 +127,9 @@ class Element(object):
 
     def children(self, n: int):
         """
-        Return a generator that iterates all n-th child element.
+        Return a generator that iterates n-th level child elements.
 
-        For example, ``elem.children(1)`` wil iterates over ``elem.content``.
+        For example, ``for e in elem.children(1)`` will iterates over ``elem.content``.
         """
         if n < 1:
             raise ValueError(f'Children index needs to be positive, received '

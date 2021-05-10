@@ -42,6 +42,8 @@ class Signal(Element):
     """Signal generated from a field."""
 
     __slots__ = ['bit_width', '_direction']
+    bit_width: int
+    _direction: SignalDirection
 
     def __init__(self, id='', bit_width=1, direction='output'):
         self.id = id
@@ -128,7 +130,7 @@ class Field(Element):
 
 
 class Register(Element):
-    """Register in register block."""
+    """Register descriptor in block. It may describe one, or a set of registers."""
 
     __slots__ = ['name', 'description', '_type', 'address_offset']
 
@@ -165,6 +167,9 @@ class Register(Element):
     def fields(self):
         return self.content
 
+    def registers(self):
+        pass
+
     def signals(self):
         return self.children(2)
 
@@ -180,12 +185,18 @@ class Register(Element):
 
 
 class Block(Element):
-    """Register block."""
+    """Register block, or so called register module."""
 
     __slots__ = ['name', 'description', 'data_width', 'base_address']
+    parent: 'Circuit'
+    content: List[Register]
+    name: str
+    description: str
+    data_width: int
+    base_address: int
 
     def __init__(self, id='', name='', description='', data_width=32, base_address=0, registers=None):
-        """Build a register block from a dict."""
+        """Build a register block."""
         self.id = id
         self.name = name
         self.description = description
@@ -200,16 +211,23 @@ class Block(Element):
     @property
     def address_width(self) -> int:
         """Minimum required address data_width."""
-        return math.ceil(math.log2(self.registers[-1].address_offset + 1)) + 2
+        return math.ceil(math.log2(self.content[-1].address_offset + 1)) + 2
 
     @property
-    def address_step(self) -> int:
-        """Address step size."""
+    def address_gap(self) -> int:
+        """Address gap size, i.e. minimum address difference between two registers"""
         return math.floor(self.data_width / 8)
 
-    @property
     def registers(self):
-        return self.content
+        """
+        Return a generator that iterates all register in this block.
+
+        Instead of return ``self.content`` for iteration, it's a generator, since some register need a generate to get
+        their all "expanded" content. For example, interrupt register has 5 additional registers associated with it.
+        See ``regen.elements.Register.registers()`` for more details.
+        """
+        for r in self.content:
+            yield from r.registers()
 
     def fields(self):
         return self.children(2)
@@ -229,8 +247,10 @@ class Block(Element):
 
 
 class Circuit(Element):
-    """Circuit design, may contain one or more blocks."""
+    """Circuit is top entry of design. It may contain one or more blocks."""
     __slots__ = ['name', 'description']
+    name: str
+    description: str
 
     def __init__(self, id='', name='', description='', blocks=None):
         self.id = id
@@ -242,9 +262,8 @@ class Circuit(Element):
             b.parent = self
         self.content = sorted(blocks, key=lambda x: x.base_address)
 
-    @property
     def blocks(self):
-        return self.content
+        return self.children(1)
 
     def to_dict(self):
         return {
