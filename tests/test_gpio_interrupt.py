@@ -3,5 +3,7 @@ import regen
 
 
 def test_regen():
-    regen.main('-q -o ./output/gpio_interrupt.txt ./tests/gpio_interrupt.json'.split())
-    # regen.main('-q -o ./output/gpio_interrupt.sv ./tests/gpio_interrupt.json'.split())
+    blk = regen.read_json('./tests/gpio_interrupt.json')
+    blk_expanded = blk.expand()
+    assert blk.count() == 12
+    assert blk_expanded.count() == 27

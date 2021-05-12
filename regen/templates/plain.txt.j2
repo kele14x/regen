@@ -1,7 +1,7 @@
 Block
 =====
 
-ID: {{ block.id }}
+ID: {{ block.identifier }}
 Name: {{ block.name }}
 Description: {{ block.description }}
 Data width: {{ block.data_width }}
@@ -13,9 +13,13 @@ Base Address: 0x{{ '%016x' % block.base_address }}
 {%- endif %}
 Module IRQ ports:
   {% for p in block.irq_ports() %}
-  {{ p.symbol(1) | lower }}
+  {{ p.identifier }}
   {% endfor %}
-Module normal ports:
+Module ports:
   {% for p in block.ports() %}
-  {{ p.symbol(2) | lower }}
+  {{ p.identifier }}
+  {% endfor %}
+Module registers:
+  {% for r in block.registers() %}
+  {{ r.identifier }}
   {% endfor %}

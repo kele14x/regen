@@ -45,13 +45,21 @@ class Signal(Element):
 
     def __init__(self, eid='', bit_width=1, direction='output', parent=None):
         self.eid = eid
+        self.parent = parent
+
         self.bit_width = bit_width
         self._direction = SignalDirection(direction)
-        self.parent = parent
 
     @property
     def direction(self):
         return self._direction.value
+
+    @property
+    def identifier(self):
+        # looks like register_filed_signal
+        return self.symbol(2)
+
+    # Serialization
 
     def to_dict(self):
         return {
@@ -61,58 +69,31 @@ class Signal(Element):
         }
 
 
-def signals_of_access(access: FieldAccess, bit_width: int) -> list[Signal]:
-    if access == FieldAccess.RW:
-        return [
-            Signal(eid='', bit_width=bit_width, direction='output'),
-            Signal(eid='oreg', bit_width=bit_width, direction='internal')
-        ]
-
-    if access == FieldAccess.RO:
-        return [
-            Signal(eid='', bit_width=bit_width, direction='input'),
-            Signal(eid='ireg', bit_width=bit_width, direction='internal')
-        ]
-
-    if access == FieldAccess.RW2:
-        return [
-            Signal(eid='out', bit_width=bit_width, direction='output'),
-            Signal(eid='oreg', bit_width=bit_width, direction='internal'),
-            Signal(eid='in', bit_width=bit_width, direction='input'),
-            Signal(eid='ireg', bit_width=bit_width, direction='internal')
-        ]
-
-    if access == FieldAccess.INT:
-        return [
-            Signal(eid='', bit_width=bit_width, direction='input'),
-            Signal(eid='trap', bit_width=bit_width, direction='internal'),
-            Signal(eid='mask', bit_width=bit_width, direction='internal'),
-            Signal(eid='force', bit_width=bit_width, direction='internal'),
-            Signal(eid='trig', bit_width=bit_width, direction='internal'),
-            Signal(eid='int', bit_width=bit_width, direction='internal'),
-            Signal(eid='dbg', bit_width=bit_width, direction='internal'),
-        ]
-
-    raise ValueError(f'Unsupported field access type {access.value}')
-
-
 class Field(Element):
     """Register field in register."""
 
     __slots__ = ['description', '_access', 'bit_offset', 'bit_width',
                  'reset']
 
-    content: list[Signal]
+    content: Optional[list[Signal]]
     parent: Optional['Register']
 
-    def __init__(self, eid='', description='', access='RW', bit_offset=0, bit_width=1, reset=0):
-        """Build a field object from a dict."""
+    def __init__(self, eid='', description='', access='RW', bit_offset=0, bit_width=1, reset=0, parent=None,
+                 signals=None):
+        """Build a field object from parameters."""
         self.eid: str = eid
+        self.parent = parent
+
         self.description = description
         self._access = FieldAccess(access)
         self.bit_offset = bit_offset
         self.bit_width = bit_width
         self.reset = reset
+
+        if signals is not None:
+            for s in signals:
+                s.parent = self
+            self.content = sorted(signals, key=lambda x: x.id)
 
     @property
     def bit_mask(self):
@@ -121,6 +102,17 @@ class Field(Element):
     @property
     def access(self) -> str:
         return self._access.value
+
+    @property
+    def identifier(self):
+        # looks like register_field
+        return self.symbol(1)
+
+    @property
+    def signals(self):
+        return self.content
+
+    # Serialization
 
     def to_dict(self):
         return {
@@ -136,77 +128,55 @@ class Field(Element):
 class Register(Element):
     """Register in register block."""
 
-    __slots__ = ['name', 'description', '_type', 'address_offset']
+    __slots__ = ['name', 'description', '_rtype', 'address_offset', 'address_size']
 
-    content: list[Field]
+    content: Optional[list[Field]]
     parent: Optional['Block']
 
     name: str
     description: str
-    _type: RegisterType
+    _rtype: RegisterType
     address_offset: int
 
-    def __init__(self, eid='', name='', description='', type='NORMAL', address_offset=0, fields=None):
-        """Build a register from dict."""
+    def __init__(self, eid='', name='', description='', rtype='NORMAL', address_offset=0, address_size=1, parent=None,
+                 fields=None):
+        """Build a register from parameters."""
         self.eid = eid
+        self.parent = parent
+
         self.name = name
         self.description = description
-        self._type = RegisterType(type)
+        self._rtype = RegisterType(rtype)
         self.address_offset = address_offset
-        if fields is None:
-            fields = []
-        for f in fields:
-            f.parent = self
-        self.content = sorted(fields, key=lambda x: x.bit_offset)
+        self.address_size = address_size
+
+        if fields is not None:
+            for f in fields:
+                f.parent = self
+            self.content = sorted(fields, key=lambda x: x.bit_offset)
 
     @property
     def reset(self) -> int:
         """Get the reset value of the register."""
         a = 0
-        for f in self.content:
-            a |= (f.reset << f.bit_offset)
+        if self.content is not None:
+            for f in self.content:
+                a |= (f.reset << f.bit_offset)
         return a
 
     @property
     def type(self):
-        return self._type.value
+        return self._rtype.value
+
+    @property
+    def identifier(self):
+        return self.eid
 
     @property
     def fields(self):
         return self.content
 
-    def ports(self):
-        """Return a generator that iterates all ports caused by fields"""
-        for f in self.fields:
-            if f.access == FieldAccess.INT.value:
-                yield Signal(eid='', direction='input', parent=f)
-            elif f.access == FieldAccess.RO.value:
-                yield Signal(eid='', direction='input', parent=f)
-            elif f.access == FieldAccess.RW.value:
-                yield Signal(eid='', direction='output', parent=f)
-            elif f.access == FieldAccess.RW2.value:
-                yield Signal(eid='in', direction='input', parent=f)
-                yield Signal(eid='out', direction='output', parent=f)
-            else:
-                raise ValueError
-
-    def expand(self):
-        """
-        Return a generator that expand this register descriptor to scalar register(s).
-
-        Depend on the type of register, the expanded result maybe single or multi elements.
-        """
-        if self._type == RegisterType.NORMAL:
-            yield self
-        elif self._type == RegisterType.INTERRUPT:
-            names = ['', 'TRIG', 'TRAP', 'MASK', 'FORCE', 'DBG']
-            for i, name in enumerate(names):
-                r = copy.copy(self)
-                r.name = r.name + name
-                r.address_offset = r.address_offset + i
-                yield r
-        elif self._type == RegisterType.MEMORY:
-            yield self
+    # Serialization
 
     def to_dict(self):
         return {
@@ -215,8 +185,19 @@ class Register(Element):
             'description': self.description,
             'type': self.type,
             'address_offset': self.address_offset,
-            'fields': self.fields
+            'fields': self.content
         }
+
+    def expand(self):
+        if self._rtype == RegisterType.INTERRUPT:
+            names = ['', '_TRIG', '_TRAP', '_DBG', '_MASK', '_FORCE']
+            copied = [super(Register, self).expand() for _ in names]
+            for i, e in enumerate(copied):
+                e.eid = e.eid + names[i]
+                e.address_offset = e.address_offset + i
+            return copied
+        else:
+            return super(Register, self).expand()
 
 
 class Block(Element):
@@ -224,7 +205,7 @@ class Block(Element):
 
     __slots__ = ['name', 'description', 'data_width', 'base_address']
 
-    content: list[Register]
+    content: Optional[list[Register]]
     parent: Optional['Circuit']
 
     name: str
@@ -232,23 +213,28 @@ class Block(Element):
     data_width: int
     base_address: int
 
-    def __init__(self, eid='', name='', description='', data_width=32, base_address=0, registers=None):
-        """Build a register block."""
+    def __init__(self, eid='', name='', description='', data_width=32, base_address=0, parent=None, registers=None):
+        """Build a block (register slave module) from parameters."""
         self.eid = eid
+        self.parent = parent
+
         self.name = name
         self.description = description
         self.data_width = data_width
         self.base_address = base_address
-        if registers is None:
-            registers = []
-        for r in registers:
-            r.parent = self
-        self.content = sorted(registers, key=lambda x: x.address_offset)
+
+        if registers is not None:
+            for r in registers:
+                r.parent = self
+            self.content = sorted(registers, key=lambda x: x.address_offset)
 
     @property
     def address_width(self) -> int:
         """Minimum required address data_width."""
-        return math.ceil(math.log2(self.registers[-1].address_offset + 1)) + 2
+        if self.content is not None:
+            return math.ceil(math.log2(self.content[-1].address_offset + 1)) + 2
+        else:
+            return 0
 
     @property
     def address_gap(self) -> int:
@@ -256,23 +242,15 @@ class Block(Element):
         return math.floor(self.data_width / 8)
 
     @property
+    def identifier(self):
+        return self.eid
+
+    @property
     def registers(self):
-        """Block.registers is mirror of Block.content"""
+        """Return a generator that iterates all registers."""
         return self.content
 
-    def irq_ports(self):
-        """Return a generator that iterates all ports of module."""
-        # Ports caused by registers
-        for r in self.registers:
-            if r.type == RegisterType.INTERRUPT.value:
-                s = Signal(eid='irq')
-                s.parent = r
-                yield s
-
-    def ports(self):
-        # Ports caused by fields are returned by register.ports
-        for r in self.registers:
-            yield from r.ports()
+    # Serialization
 
     def to_dict(self):
         return {
@@ -281,7 +259,7 @@ class Block(Element):
             'description': self.description,
             'data_width': self.data_width,
             'base_address': self.base_address,
-            'registers': self.registers
+            'registers': self.content
         }
 
 
@@ -289,31 +267,39 @@ class Circuit(Element):
     """Circuit design, may contain one or more blocks."""
     __slots__ = ['name', 'description']
 
-    content: list[Block]
+    content: Optional[list[Block]]
     parent: None
 
     name: str
     description: str
 
-    def __init__(self, eid='', name='', description='', blocks=None):
+    def __init__(self, eid='', name='', description='', parent=None, blocks=None):
         self.eid = eid
+        self.parent = parent
+
         self.name = name
         self.description = description
-        if blocks is None:
-            blocks = []
-        for b in blocks:
-            b.parent = self
-        self.content = sorted(blocks, key=lambda x: x.base_address)
+
+        if blocks is not None:
+            for b in blocks:
+                b.parent = self
+            self.content = sorted(blocks, key=lambda x: x.base_address)
+
+    @property
+    def identifier(self):
+        return self.eid
 
     @property
     def blocks(self):
         """Circuit.blocks is mirror of Circuit.content"""
         return self.content
 
+    # Serialization
+
     def to_dict(self):
         return {
             'id': self.eid,
             'name': self.name,
             'description': self.description,
-            'blocks': self.blocks
+            'blocks': self.content
         }

@@ -53,7 +53,7 @@ def json_deserialize(d: dict):
         type = RegisterType(d.get('type', 'NORMAL'))
         address_offset = d.get('address_offset', 0)
         fields = d['fields']
-        register = Register(eid=eid, name=name, description=description, type=type, address_offset=address_offset,
+        register = Register(eid=eid, name=name, description=description, rtype=type, address_offset=address_offset,
                             fields=fields)
         return register
 

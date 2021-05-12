@@ -1,4 +1,5 @@
 """Base module contains basic Element class for use."""
+import copy
 from typing import Union
 
 
@@ -27,6 +28,10 @@ class Element(object):
     def id(self):
         return self.eid
 
+    @property
+    def identifier(self):
+        return self.symbol()
+
     def to_dict(self):
         """
         Return a ``dict`` contains key attributes.
@@ -52,47 +57,6 @@ class Element(object):
         s = [elem.eid for elem in self.ancestors(n)]
         return sep.join(filter(None, reversed(s)))
 
-    # Navigation
-
-    @property
-    def container(self):
-        """
-        Get the container that contains this element.
-
-        Usually the container is a ``list``. If no such container exists,
-        ``None`` is returned.
-
-        Don't confuse this property with ``parent``.
-        """
-        if self.parent is not None:
-            return self.parent.content
-
-    @property
-    def index(self):
-        """Get the index of this element in it's container."""
-        container = self.container
-        if container is not None:
-            return container.index(self)
-
-    def sibling(self, n):
-        """Return n-th sibling in parent's content."""
-        idx = self.index
-        if idx is not None:
-            idx = idx + n
-            container = self.container
-            if 0 <= idx < len(container):
-                return container[idx]
-
-    @property
-    def next(self):
-        """Return the next sibling element."""
-        return self.sibling(1)
-
-    @property
-    def prev(self):
-        """Return the previous sibling element."""
-        return self.sibling(-1)
-
     def ancestor(self, n: int) -> Union['Element', None]:
         """
         Return the n-th ancestor.
@@ -111,19 +75,26 @@ class Element(object):
         else:
             return self.parent.ancestor(n - 1)
 
+    def count(self):
+        """Count the number of elements, including children elements and self."""
+        return sum((1 for _ in self.walk()))
+
     # Iteration
 
-    def walk(self):
+    def walk(self, b2t=False):
         """
         Return a generator that iterates all children elements and self.
 
         This function will integrate all children elements including
         children of children and finally self.
         """
+        if not b2t:
+            yield self
         if self.content is not None:
             for c in self.content:
                 yield from c.walk()
-        yield self
+        if b2t:
+            yield self
 
     def ancestors(self, n: int):
         """Return a generator that iterates from self to n-th ancestor."""
@@ -156,3 +127,18 @@ class Element(object):
         else:
             for c in self.content:
                 yield from c.children(n - 1)
+
+    def expand(self):
+        """Return a expanded version of this element."""
+        copied = copy.copy(self)
+        if self.content is not None:
+            copied.content = []
+            for e in self.content:
+                expanded = e.expand()
+                if isinstance(expanded, list):
+                    copied.content.extend(expanded)
+                else:
+                    copied.content.append(expanded)
+            for e in self.content:
+                e.parent = self
+        return copied
