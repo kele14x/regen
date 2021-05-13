@@ -1,4 +1,3 @@
-import copy
 import logging
 import math
 from enum import Enum
@@ -247,7 +246,6 @@ class Block(Element):
 
     @property
     def registers(self):
-        """Return a generator that iterates all registers."""
         return self.content
 
     # Serialization
@@ -291,7 +289,6 @@ class Circuit(Element):
 
     @property
     def blocks(self):
-        """Circuit.blocks is mirror of Circuit.content"""
         return self.content
 
     # Serialization

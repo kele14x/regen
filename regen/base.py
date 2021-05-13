@@ -1,6 +1,6 @@
 """Base module contains basic Element class for use."""
 import copy
-from typing import Union
+from typing import Optional
 
 
 class Element(object):
@@ -8,8 +8,8 @@ class Element(object):
 
     __slots__ = ['eid', 'parent', 'content']
     eid: str  # Element ID
-    parent: Union['Element', None]
-    content: Union[list, None]
+    parent: Optional['Element']
+    content: Optional[list['Element']]
 
     def __new__(cls, *args, **kwargs):
         """
@@ -32,7 +32,7 @@ class Element(object):
     def identifier(self):
         return self.symbol()
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         """
         Return a ``dict`` contains key attributes.
 
@@ -57,7 +57,7 @@ class Element(object):
         s = [elem.eid for elem in self.ancestors(n)]
         return sep.join(filter(None, reversed(s)))
 
-    def ancestor(self, n: int) -> Union['Element', None]:
+    def ancestor(self, n: int) -> Optional['Element']:
         """
         Return the n-th ancestor.
 
@@ -75,7 +75,7 @@ class Element(object):
         else:
             return self.parent.ancestor(n - 1)
 
-    def count(self):
+    def count(self) -> int:
         """Count the number of elements, including children elements and self."""
         return sum((1 for _ in self.walk()))
 
@@ -92,7 +92,7 @@ class Element(object):
             yield self
         if self.content is not None:
             for c in self.content:
-                yield from c.walk()
+                yield from c.walk(b2t)
         if b2t:
             yield self
 
