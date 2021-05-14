@@ -128,17 +128,23 @@ class Element(object):
             for c in self.content:
                 yield from c.children(n - 1)
 
-    def expand(self):
-        """Return a expanded version of this element."""
+    def copy(self):
+        """
+        Return a deep copy version of this element.
+
+        This function return a new copied element of self, and recursively
+        copies of it's content.
+
+        Note: The copied element will has same parent with original one.
+        """
         copied = copy.copy(self)
         if self.content is not None:
-            copied.content = []
-            for e in self.content:
-                expanded = e.expand()
-                if isinstance(expanded, list):
-                    copied.content.extend(expanded)
-                else:
-                    copied.content.append(expanded)
-            for e in self.content:
-                e.parent = self
+            # ``copy.copy()`` create a new list, but this list contains
+            # references to original objects. We need a new list for copied
+            # children elements.
+            copied.content = [elem.copy() for elem in self.content]
+            # The copied children elements have ``parent`` attribute reference
+            # to self, change it to copied one
+            for elem in copied.content:
+                elem.parent = copied
         return copied

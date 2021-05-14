@@ -26,9 +26,10 @@ class FieldAccess(Enum):
 class RegisterType(Enum):
     """Type of a register."""
 
-    NORMAL = 'NORMAL'  # Normal register
+    DUMMY = 'DUMMY'  # Only appears but without function
     INTERRUPT = 'INTERRUPT'  # Interrupt register
     MEMORY = 'MEMORY'  # A memory mapped region
+    NORMAL = 'NORMAL'  # Normal register
 
 
 class Signal(Element):
@@ -74,11 +75,10 @@ class Field(Element):
     __slots__ = ['description', '_access', 'bit_offset', 'bit_width',
                  'reset']
 
-    content: Optional[list[Signal]]
+    content: None
     parent: Optional['Register']
 
-    def __init__(self, eid='', description='', access='RW', bit_offset=0, bit_width=1, reset=0, parent=None,
-                 signals=None):
+    def __init__(self, eid='', description='', access='RW', bit_offset=0, bit_width=1, reset=0, parent=None):
         """Build a field object from parameters."""
         self.eid: str = eid
         self.parent = parent
@@ -88,11 +88,6 @@ class Field(Element):
         self.bit_offset = bit_offset
         self.bit_width = bit_width
         self.reset = reset
-
-        if signals is not None:
-            for s in signals:
-                s.parent = self
-            self.content = sorted(signals, key=lambda x: x.id)
 
     @property
     def bit_mask(self):
@@ -107,9 +102,22 @@ class Field(Element):
         # looks like register_field
         return self.symbol(1)
 
-    @property
+    # Iteration
+
     def signals(self):
-        return self.content
+        if self._access == FieldAccess.INT:
+            yield Signal(eid='', bit_width=self.bit_width, direction='internal', parent=self)
+
+    def ports(self):
+        if self._access == FieldAccess.INT:
+            yield Signal(eid='', bit_width=self.bit_width, direction='input', parent=self)
+        elif self._access == FieldAccess.RO:
+            yield Signal(eid='', bit_width=self.bit_width, direction='input', parent=self)
+        elif self._access == FieldAccess.RW:
+            yield Signal(eid='', bit_width=self.bit_width, direction='output', parent=self)
+        elif self._access == FieldAccess.RW2:
+            yield Signal(eid='', bit_width=self.bit_width, direction='input', parent=self)
+            yield Signal(eid='out', bit_width=self.bit_width, direction='output', parent=self)
 
     # Serialization
 
@@ -136,6 +144,7 @@ class Register(Element):
     description: str
     _rtype: RegisterType
     address_offset: int
+    address_size: int
 
     def __init__(self, eid='', name='', description='', rtype='NORMAL', address_offset=0, address_size=1, parent=None,
                  fields=None):
@@ -171,9 +180,33 @@ class Register(Element):
     def identifier(self):
         return self.eid
 
-    @property
+    # Iteration
+
+    def expanded(self):
+        if self._rtype == RegisterType.INTERRUPT:
+            names = ['', '_TRIG', '_TRAP', '_DBG', '_MASK', '_FORCE']
+            copied = [self.copy() for _ in names]
+            for i, e in enumerate(copied):
+                e.eid = e.eid + names[i]
+                e.address_offset = e.address_offset + i
+                if i > 0:
+                    e._rtype = RegisterType.DUMMY
+            yield from copied
+        else:
+            yield self
+
+    def irq_ports(self):
+        if self._rtype == RegisterType.INTERRUPT:
+            yield Signal(eid='irq', direction='input', parent=self)
+
     def fields(self):
-        return self.content
+        if self.content is not None:
+            yield from self.content
+
+    def ports(self):
+        if self.content is not None:
+            for f in self.content:
+                yield from f.ports()
 
     # Serialization
 
@@ -186,19 +219,6 @@ class Register(Element):
             'address_offset': self.address_offset,
             'fields': self.content
         }
-
-    def expand(self):
-        if self._rtype == RegisterType.INTERRUPT:
-            names = ['', '_TRIG', '_TRAP', '_DBG', '_MASK', '_FORCE']
-            copied = [super(Register, self).expand() for _ in names]
-            for i, e in enumerate(copied):
-                e.eid = e.eid + names[i]
-                e.address_offset = e.address_offset + i
-                if i > 0:
-                    e._rtype = RegisterType.NORMAL
-            return copied
-        else:
-            return super(Register, self).expand()
 
 
 class Block(Element):
@@ -247,12 +267,25 @@ class Block(Element):
         return self.eid
 
     @property
-    def registers(self):
-        return self.content
-
-    @property
     def has_irq(self):
         return any((r.type == RegisterType.INTERRUPT.value for r in self.content))
+
+    # Iteration
+
+    def registers(self):
+        """Return a generator that iterates all registers."""
+        # Instead of directly return ``self.content``, it should yield from ```register.expanded()``.
+        if self.content is not None:
+            for c in self.content:
+                yield from c.expanded()
+
+    def irq_ports(self):
+        for r in self.registers():
+            yield from r.irq_ports()
+
+    def ports(self):
+        for r in self.registers():
+            yield from r.ports()
 
     # Serialization
 
@@ -293,9 +326,11 @@ class Circuit(Element):
     def identifier(self):
         return self.eid
 
-    @property
+    # Iteration
+
     def blocks(self):
-        return self.content
+        if self.content is not None:
+            yield from self.content
 
     # Serialization
 

@@ -1,27 +1,50 @@
+Register Block Information
+==========================
+
 Block
-=====
+-----
 
-ID: {{ block.identifier }}
-Name: {{ block.name }}
-Description: {{ block.description }}
-Data width: {{ block.data_width }}
+EID          : {{ block.id }}
+Identifier   : {{ block.identifier }}
+Name         : {{ block.name }}
+Description  : {{ block.description }}
+Data width   : {{ block.data_width }}
 Address width: {{ block.address_width }}
-{% if block.data_width == 32 -%}
-Base Address: 0x{{ '%08x' % block.base_address }}
-{% else -%}
-Base Address: 0x{{ '%016x' % block.base_address }}
-{%- endif %}
+Address gap  : {{ block.address_gap }}
+Base Address : 0x{{ '%x' % block.base_address }}
+Has IRQ      : {{ block.has_irq }}
 
-Register Address Map
---------------------
+{% for port in block.irq_ports() %}
+IRQ Port
+--------
 
-+----------------+----------------------+----------------------+
-| Address Offset | ID                   | Name                 |
-+================+======================+======================+
-{% for reg in block.registers %}
-| {{ '%14s' | format(reg.address_offset) }} | {{ '%20s' | format(reg.identifier) }} | {{ '%20s' | format(reg.name) }} |
-+----------------+----------------------+------------------------+
+EID       : {{ port.id }}
+Identifier: {{ port.identifier }}
+Bit width : {{ port.bit_width }}
+Direction : {{ port.direction }}
+
 {% endfor %}
+{% for port in block.ports() %}
+Port
+----
 
-Register Details
-----------------
+EID       : {{ port.id }}
+Identifier: {{ port.identifier }}
+Bit width : {{ port.bit_width }}
+Direction : {{ port.direction }}
+
+{% endfor %}
+{% for reg in block.registers() %}
+Register
+--------
+
+EID           : {{ reg.id }}
+Identifier    : {{ reg.identifier }}
+Name          : {{ reg.name }}
+Description   : {{ reg.description }}
+Type          : {{ reg.type }}
+Address offset: {{ reg.address_offset }}
+Address size  : {{ reg.address_size }}
+content       : {{ reg.content[0].parent }}
+
+{% endfor %}
