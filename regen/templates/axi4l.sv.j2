@@ -1,25 +1,23 @@
-{#- This macro generate the port declaration line -#}
-{%- macro field_port(direction, register, field, suffix='', is_last=False) -%}
-{{ direction }} var
-  {%- if field.bit_width > 1 %} [{{ field.bit_width - 1 }}:0] {% else %} {% endif -%}
-{{ register.id | lower }}_{{ field.id | lower }}{{ suffix }}
-  {%- if not is_last %},{% endif -%}
+{#- Port or signal declaration line -#}
+{%- macro dec_helper(direction, port_size=1) -%}
+{{ direction }} {%- if port_size > 1 %} [{{ port_size - 1 }}:0]{% else %}{% endif -%}
 {%- endmacro -%}
 
 
-{#- This macro generate the port declarations for a field, there may be multiple
-    ports for one field. -#}
-{%- macro field_ports(register, field, is_last=False) -%}
-  {%- if field.access == 'RW' -%}
-{{ field_port('output', register, field, '', is_last) }}
-  {%- elif field.access == 'RO' -%}
-{{ field_port('input', register, field, '', is_last) }}
-  {%- elif field.access == 'RW2' -%}
-{{ field_port('output', register, field, '_out', False) }}
-{{ field_port('input', register, field, '_in', is_last) }}
-  {%- else -%}
+{#- This macro generate the port declarations for a field -#}
+{%- macro ports(field, is_last=False) -%}
+    {%- if field.access == 'INT' -%}
+{{ dec_helper('input var', field.bit_width) }} {{ field.identifier }}{%- if not is_last %},{% endif -%}
+    {%- elif field.access == 'RO' -%}
+{{ dec_helper('input var', field.bit_width) }} {{ field.identifier }}{%- if not is_last %},{% endif -%}
+    {%- elif field.access == 'RW' -%}
+{{ dec_helper('output var', field.bit_width) }} {{ field.identifier }}{%- if not is_last %},{% endif -%}
+    {%- elif field.access == 'RW2' -%}
+{{ dec_helper('input var', field.bit_width) }} {{ field.identifier }}_in,
+{{ dec_helper('output var', field.bit_width) }} {{ field.identifier }}_out{%- if not is_last %},{% endif -%}
+    {%- else -%}
 // TEMPLATE ERROR: UNSUPPORTED FIELD ACCESS TYPE
-  {%- endif -%}
+    {%- endif -%}
 {%- endmacro -%}
 
 
@@ -83,7 +81,7 @@ module {{ block.id | lower }}_regs #(
     parameter C_DATA_WIDTH = {{ block.width }}
 ) (
     // AXI4-Lite Slave
-    //=================
+    //================
     input  var                      aclk         ,
     input  var                      aresetn      ,
     //
@@ -110,13 +108,21 @@ module {{ block.id | lower }}_regs #(
     output var [               1:0] s_axi_rresp  ,
     output var                      s_axi_rvalid ,
     input  var                      s_axi_rready ,
+    {% if block.has_irq %}
+    // IRQ Ports
+        {% for reg in block.registers %}
+            {% if reg.type == 'INTERRUPT' %}
+    {{ dec_helper('output var') }} {{ reg.identifier }}_irq,
+            {% endif %}
+        {% endfor %}
+    {% endif %}
     // Register Interface
     //-------------------
-    {% for r in block.registers %}
-    // {{ r.id }}
+    {% for reg in block.registers %}
         {% set outer_loop = loop %}
-        {% for f in r.fields %}
-    {{ field_ports(r, f, loop.last and outer_loop.last) | indent(4) }}
+        {% for field in reg.fields %}
+    // {{ field.identifier }}
+    {{ ports(field, loop.last and outer_loop.last) | indent(4) }}
         {% endfor %}
     {% endfor %}
 );

@@ -11,15 +11,17 @@ Base Address: 0x{{ '%08x' % block.base_address }}
 {% else -%}
 Base Address: 0x{{ '%016x' % block.base_address }}
 {%- endif %}
-Module IRQ ports:
-  {% for p in block.irq_ports() %}
-  {{ p.identifier }}
-  {% endfor %}
-Module ports:
-  {% for p in block.ports() %}
-  {{ p.identifier }}
-  {% endfor %}
-Module registers:
-  {% for r in block.registers() %}
-  {{ r.identifier }}
-  {% endfor %}
+
+Register Address Map
+--------------------
+
++----------------+----------------------+----------------------+
+| Address Offset | ID                   | Name                 |
++================+======================+======================+
+{% for reg in block.registers %}
+| {{ '%14s' | format(reg.address_offset) }} | {{ '%20s' | format(reg.identifier) }} | {{ '%20s' | format(reg.name) }} |
++----------------+----------------------+------------------------+
+{% endfor %}
+
+Register Details
+----------------

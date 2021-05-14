@@ -210,6 +210,7 @@ def main(argv=None):
 
     # Run DRC
 
+    blk = blk.expand()
     run_drc(blk)
 
     # Render using template

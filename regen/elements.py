@@ -194,6 +194,8 @@ class Register(Element):
             for i, e in enumerate(copied):
                 e.eid = e.eid + names[i]
                 e.address_offset = e.address_offset + i
+                if i > 0:
+                    e._rtype = RegisterType.NORMAL
             return copied
         else:
             return super(Register, self).expand()
@@ -247,6 +249,10 @@ class Block(Element):
     @property
     def registers(self):
         return self.content
+
+    @property
+    def has_irq(self):
+        return any((r.type == RegisterType.INTERRUPT.value for r in self.content))
 
     # Serialization
 
