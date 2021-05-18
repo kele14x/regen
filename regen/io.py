@@ -9,7 +9,7 @@ from typing import Optional, Union
 from jinja2 import Environment, PackageLoader
 
 from .base import Element
-from .elements import Circuit, Block, Register, Field, RegisterType, FieldAccess
+from .elements import Circuit, Block, Register, Field
 
 __all__ = ['read_json', 'read_csv', 'read_xlsx', 'dump_json', 'render_template']
 
@@ -50,21 +50,22 @@ def json_deserialize(d: dict):
         eid = d.get('id', '')
         name = d.get('name', '')
         description = d.get('description', '')
-        type = RegisterType(d.get('type', 'NORMAL'))
+        rtype = d.get('type', 'NORMAL')
         address_offset = d.get('address_offset', 0)
         fields = d['fields']
-        register = Register(eid=eid, name=name, description=description, rtype=type, address_offset=address_offset,
+        register = Register(eid=eid, name=name, description=description, rtype=rtype, address_offset=address_offset,
                             fields=fields)
         return register
 
     if 'access' in d:
         eid = d.get('id', '')
         description = d.get('description', '')
-        access = FieldAccess(d.get('access', 'RW'))
+        access = d.get('access', 'RW')
         bit_offset = d.get('bit_offset', 0)
         bit_width = d.get('bit_width', 1)
         reset = d.get('reset', 0)
-        field = Field(eid=eid, description=description, access=access, bit_offset=bit_offset, bit_width=bit_width, reset=reset)
+        field = Field(eid=eid, description=description, access=access, bit_offset=bit_offset, bit_width=bit_width,
+                      reset=reset)
         return field
 
 

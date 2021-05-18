@@ -1,62 +1,74 @@
 import logging
 import math
-from enum import Enum
-from typing import Optional
+from typing import Optional, Union
 
 from .base import Element
 
 logger = logging.getLogger('main')
 
+# Type of a register.
+known_register_type = ['DUMMY', 'INTERRUPT', 'NORMAL', 'MEMORY']
 
-class SignalDirection(Enum):
-    INPUT = 'input'
-    INTERNAL = 'internal'
-    OUTPUT = 'output'
+# Signal direction
+known_port_direction = ['input', 'output']
 
-
-class FieldAccess(Enum):
-    """Access type of a field, it controls the hdl logic genrated."""
-
-    INT = 'INT'  # Only for register with interrupt type
-    RO = 'RO'  # Input, write has no effect
-    RW = 'RW'  # Output, read written value
-    RW2 = 'RW2'  # Output and input two way
-
-
-class RegisterType(Enum):
-    """Type of a register."""
-
-    DUMMY = 'DUMMY'  # Only appears but without function
-    INTERRUPT = 'INTERRUPT'  # Interrupt register
-    MEMORY = 'MEMORY'  # A memory mapped region
-    NORMAL = 'NORMAL'  # Normal register
+# Access type of a field
+known_field_access = ['INT', 'RO', 'RW', 'RW0', 'RW2']
 
 
 class Signal(Element):
     """Signal generated from a field."""
 
-    __slots__ = ['bit_width', '_direction']
+    __slots__ = ['bit_width']
 
     content: None
     parent: Optional['Field']
 
     bit_width: int
-    _direction: SignalDirection
 
-    def __init__(self, eid='', bit_width=1, direction='output', parent=None):
-        self.eid = eid
-        self.parent = parent
+    def __init__(self, eid='', bit_width=1, parent=None):
+        super(Signal, self).__init__(eid=eid, parent=parent)
 
         self.bit_width = bit_width
-        self._direction = SignalDirection(direction)
-
-    @property
-    def direction(self):
-        return self._direction.value
 
     @property
     def identifier(self):
         # looks like register_filed_signal
+        return self.symbol(2)
+
+    # Serialization
+
+    def to_dict(self):
+        return {
+            'id': self.eid,
+            'bit_width': self.bit_width,
+        }
+
+
+class Port(Signal):
+    """Port of register block."""
+
+    __slots__ = ['direction']
+
+    content: None
+    parent: Union['Field', 'Register', None]
+
+    direction: str
+
+    def __init__(self, eid='', bit_width=1, direction='output', parent=None):
+        super(Port, self).__init__(eid=eid, bit_width=bit_width, parent=parent)
+        self.direction = direction
+
+    @property
+    def is_known_direction(self):
+        return self.direction in known_port_direction
+
+    @property
+    def identifier(self):
+        # For port belongs to register, it will be like register_port
+        if isinstance(self.parent, Register):
+            return self.symbol(1)
+        # For port belongs to field, it will be like register_field_port
         return self.symbol(2)
 
     # Serialization
@@ -70,21 +82,33 @@ class Signal(Element):
 
 
 class Field(Element):
-    """Register field in register."""
+    """
+    Field abstraction class
 
-    __slots__ = ['description', '_access', 'bit_offset', 'bit_width',
+    A field represents a set of bits that behave consistently as a single entity.
+
+    A field is contained within a single register.
+    """
+
+    __slots__ = ['description', 'access', 'bit_offset', 'bit_width',
                  'reset']
 
     content: None
     parent: Optional['Register']
 
+    description: str
+    access: str
+    bit_offset: int
+    bit_width: int
+    reset: int
+    "THis is doc for reset"
+
     def __init__(self, eid='', description='', access='RW', bit_offset=0, bit_width=1, reset=0, parent=None):
         """Build a field object from parameters."""
-        self.eid: str = eid
-        self.parent = parent
+        super(Field, self).__init__(eid=eid, parent=parent)
 
         self.description = description
-        self._access = FieldAccess(access)
+        self.access = access
         self.bit_offset = bit_offset
         self.bit_width = bit_width
         self.reset = reset
@@ -94,8 +118,8 @@ class Field(Element):
         return ((2 ** self.bit_width) - 1) * (2 ** self.bit_offset)
 
     @property
-    def access(self) -> str:
-        return self._access.value
+    def is_known_access(self):
+        return self.access in known_field_access
 
     @property
     def identifier(self):
@@ -105,19 +129,21 @@ class Field(Element):
     # Iteration
 
     def signals(self):
-        if self._access == FieldAccess.INT:
-            yield Signal(eid='', bit_width=self.bit_width, direction='internal', parent=self)
+        yield Signal(eid='int', bit_width=self.bit_width, parent=self)
+        if self.access == 'RW2':
+            yield Signal(eid='int2', bit_width=self.bit_width, parent=self)
 
     def ports(self):
-        if self._access == FieldAccess.INT:
-            yield Signal(eid='', bit_width=self.bit_width, direction='input', parent=self)
-        elif self._access == FieldAccess.RO:
-            yield Signal(eid='', bit_width=self.bit_width, direction='input', parent=self)
-        elif self._access == FieldAccess.RW:
-            yield Signal(eid='', bit_width=self.bit_width, direction='output', parent=self)
-        elif self._access == FieldAccess.RW2:
-            yield Signal(eid='', bit_width=self.bit_width, direction='input', parent=self)
-            yield Signal(eid='out', bit_width=self.bit_width, direction='output', parent=self)
+        if self.access == 'INT':
+            if self.parent is not None and self.parent.rtype == 'INTERRUPT':
+                yield Port(eid='', bit_width=self.bit_width, direction='input', parent=self)
+        elif self.access == 'RO':
+            yield Port(eid='', bit_width=self.bit_width, direction='input', parent=self)
+        elif self.access == 'RW':
+            yield Port(eid='', bit_width=self.bit_width, direction='output', parent=self)
+        elif self.access == 'RW2':
+            yield Port(eid='in', bit_width=self.bit_width, direction='input', parent=self)
+            yield Port(eid='out', bit_width=self.bit_width, direction='output', parent=self)
 
     # Serialization
 
@@ -135,26 +161,25 @@ class Field(Element):
 class Register(Element):
     """Register in register block."""
 
-    __slots__ = ['name', 'description', '_rtype', 'address_offset', 'address_size']
+    __slots__ = ['name', 'description', 'rtype', 'address_offset', 'address_size']
 
     content: Optional[list[Field]]
     parent: Optional['Block']
 
     name: str
     description: str
-    _rtype: RegisterType
+    rtype: str
     address_offset: int
     address_size: int
 
     def __init__(self, eid='', name='', description='', rtype='NORMAL', address_offset=0, address_size=1, parent=None,
                  fields=None):
         """Build a register from parameters."""
-        self.eid = eid
-        self.parent = parent
+        super(Register, self).__init__(eid=eid, parent=parent)
 
         self.name = name
         self.description = description
-        self._rtype = RegisterType(rtype)
+        self.rtype = rtype
         self.address_offset = address_offset
         self.address_size = address_size
 
@@ -174,34 +199,55 @@ class Register(Element):
 
     @property
     def type(self):
-        return self._rtype.value
+        return self.rtype
+
+    @property
+    def is_known_type(self):
+        return self.rtype in known_register_type
 
     @property
     def identifier(self):
         return self.eid
 
+    @property
+    def has_irq(self):
+        if self.rtype == 'INTERRUPT' and self.content is not None and self.content:
+            return True
+        return False
+
+    @property
+    def has_port(self):
+        if self.rtype != 'DUMMY' and self.content is not None and self.content:
+            return True
+        return False
+
     # Iteration
 
     def expanded(self):
-        if self._rtype == RegisterType.INTERRUPT:
+        if self.rtype == 'INTERRUPT':
             names = ['', '_TRIG', '_TRAP', '_DBG', '_MASK', '_FORCE']
             copied = [self.copy() for _ in names]
             for i, e in enumerate(copied):
                 e.eid = e.eid + names[i]
                 e.address_offset = e.address_offset + i
                 if i > 0:
-                    e._rtype = RegisterType.DUMMY
+                    e.rtype = 'DUMMY'
             yield from copied
         else:
             yield self
 
     def irq_ports(self):
-        if self._rtype == RegisterType.INTERRUPT:
-            yield Signal(eid='irq', direction='input', parent=self)
+        if self.rtype == 'INTERRUPT':
+            yield Port(eid='irq', direction='output', parent=self)
 
     def fields(self):
         if self.content is not None:
             yield from self.content
+
+    def signals(self):
+        if self.content is not None:
+            for f in self.content:
+                yield from f.signals()
 
     def ports(self):
         if self.content is not None:
@@ -236,8 +282,7 @@ class Block(Element):
 
     def __init__(self, eid='', name='', description='', data_width=32, base_address=0, parent=None, registers=None):
         """Build a block (register slave module) from parameters."""
-        self.eid = eid
-        self.parent = parent
+        super(Block, self).__init__(eid=eid, parent=parent)
 
         self.name = name
         self.description = description
@@ -268,7 +313,7 @@ class Block(Element):
 
     @property
     def has_irq(self):
-        return any((r.type == RegisterType.INTERRUPT.value for r in self.content))
+        return any((r.has_irq for r in self.content))
 
     # Iteration
 
@@ -278,6 +323,15 @@ class Block(Element):
         if self.content is not None:
             for c in self.content:
                 yield from c.expanded()
+
+    def fields(self):
+        """Return a generator that iterates all fields."""
+        for r in self.registers():
+            yield from r.fields()
+
+    def signals(self):
+        for r in self.registers():
+            yield from r.signals()
 
     def irq_ports(self):
         for r in self.registers():
@@ -311,8 +365,7 @@ class Circuit(Element):
     description: str
 
     def __init__(self, eid='', name='', description='', parent=None, blocks=None):
-        self.eid = eid
-        self.parent = parent
+        super(Circuit, self).__init__(eid=eid, parent=parent)
 
         self.name = name
         self.description = description

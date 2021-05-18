@@ -9,3 +9,4 @@ def test_api():
 
 def test_interface():
     regen.main('-q -o ./output/gpio_interrupt.txt ./tests/gpio_interrupt.json'.split())
+    regen.main('-q -o ./output/gpio_interrupt.sv ./tests/gpio_interrupt.json'.split())
