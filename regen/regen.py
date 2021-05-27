@@ -13,8 +13,7 @@ import sys
 from .drc import run_drc
 from .io import read_json, read_xlsx, read_csv, render_template, dump_json
 from .logging import init_logger
-
-__version__ = '0.1'
+from .version import __version__
 
 logger = logging.getLogger('main')
 
@@ -33,21 +32,17 @@ def parse_arguments(argv=None):
 
     # Input and Output Options
 
-    # If user does not specify a input file, we read from stdin. This enables
-    # chain this script with other tools support stdin and stdout.
+    # TODO: Reconsider pipe from <stdin>. For example, specify input using '-'
     parser.add_argument(
         'input',
-        help='Read input from INPUT instead of stdin',
-        nargs='?',
+        help='Read input from INPUT file',
     )
 
-    # If user does not specify a output file, we write to stdout.
-    # Note warning and error message will go to stderr, which by default,
-    # will appear on terminal with stdout.
+    # If user does not specify a output file, we will not write to file.
     parser.add_argument(
         '-o', '--output',
         dest='output',
-        help='Write output to OUTPUT instead of stdout',
+        help='Write output to OUTPUT file',
         nargs='?',
     )
 
@@ -56,7 +51,7 @@ def parse_arguments(argv=None):
     parser.add_argument(
         '-l', '--log',
         dest='log',
-        help='Write log to LOG instead of stderr',
+        help='Write log to LOG file instead of <stderr>',
         nargs='?',
     )
 
@@ -66,7 +61,7 @@ def parse_arguments(argv=None):
     # can specify it explicitly
     parser.add_argument(
         '-f', '--from',
-        choices=['json', 'xlsx', 'csv'],
+        choices=['json', 'xlsx', 'xls', 'csv'],
         dest='from_format',
         help='Specify input format',
     )
@@ -172,11 +167,11 @@ def main(argv=None):
 
     if args.template is None:
         if args.to_format == 'sv':
-            args.template = 'axi4l.sv.j2'
+            args.template = 'systemverilog.sv.j2'
         elif args.to_format == 'v':
-            args.template = 'axi4l.v.j2'
+            args.template = 'verilog.v.j2'
         elif args.to_format == 'vhd' or args.to_format == 'vhdl':
-            args.template = 'axi4l.vhd.j2'
+            args.template = 'vhdl.vhd.j2'
         elif args.to_format == 'h':
             args.template = 'c_header.h.j2'
         elif args.to_format == 'vh':
@@ -210,20 +205,16 @@ def main(argv=None):
 
     # Run DRC
 
-    blk = blk.copy()
     run_drc(blk)
 
     # Render using template
 
-    if args.output is None:
-        fp = sys.stdout
-    else:
-        fp = open(args.output, 'w', encoding='UTF-8')
-
-    if args.to_format == 'json':
-        dump_json(blk, fp)
-    else:
-        render_template(blk, args.template, fp)
+    if args.output is not None:
+        with open(args.output, 'w', encoding='UTF-8') as f:
+            if args.to_format == 'json':
+                dump_json(blk, f)
+            else:
+                render_template(blk, args.template, f)
 
 
 if __name__ == '__main__':
