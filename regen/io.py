@@ -3,7 +3,6 @@ io is module for input and output function.
 """
 import json
 import logging
-import sys
 from typing import Optional, Union
 
 from jinja2 import Environment, PackageLoader
@@ -100,31 +99,22 @@ def read_csv(file: str) -> Optional[Block]:
 # -----------
 
 def json_serializer(elem: Element):
+    assert isinstance(elem, Element)
     return elem.to_dict()
 
 
-def dump_json(elem: Element, output_stream=None):
+def dump_json(elem: Element, output):
     """Serialize this element to JSON formatted ``str``."""
-
-    if not isinstance(elem, Element):
-        msg = f'dump_json needs input of type "regen.Element" but received one of type "{type(elem).__name__}"'
-        raise TypeError(msg)
-
-    if output_stream is None:
-        output_stream = sys.stdout
-
-    json.dump(elem, output_stream, default=json_serializer, indent=2)
+    assert isinstance(elem, Element)
+    json.dump(elem, output, default=json_serializer, indent=2)
 
 
 # Template Output
 # ---------------
 
-def render_template(blk: Block, template: str, output_stream=None):
-    """
-    Render Block using a specified template.
-    """
-    if not isinstance(blk, Block):
-        raise TypeError(f'You can only render template on a Block object, received {type(blk).__name__}')
+def render_template(blk: Block, template: str, output):
+    """Render Block using a specified template."""
+    assert isinstance(blk, Block)
 
     # Configure and build jinja2 template
     env = Environment(
@@ -136,8 +126,5 @@ def render_template(blk: Block, template: str, output_stream=None):
     )
     template = env.get_template(template)
 
-    if output_stream is None:
-        output_stream = sys.stdout
-
     s = template.render(block=blk)
-    output_stream.write(s)
+    output.write(s)

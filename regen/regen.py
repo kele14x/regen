@@ -2,7 +2,7 @@
 regen is HDL slave register module generator for FPGA/ASIC design.
 
 Usage:
-    python regen.py INPUT -o OUTPUT
+    python regen.py [options] <file>
 """
 
 import argparse

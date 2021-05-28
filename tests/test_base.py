@@ -31,9 +31,3 @@ def test_symbol():
     symbols = [s.symbol(sep='.') for s in b.walk()]
     assert symbols[0] == 'SIMPLE_GPIO'
     assert symbols[-1] == 'SIMPLE_GPIO.IP_IER.IE1'
-
-
-def test_regen():
-    regen.main('-q -o ./output/simple_gpio.json ./tests/simple_gpio.json'.split())
-    regen.main('-q -o ./output/simple_gpio.sv ./tests/simple_gpio.json'.split())
-    regen.main('-q -o ./output/simple_gpio.h ./tests/simple_gpio.json'.split())
