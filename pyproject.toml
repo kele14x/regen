@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "regen"
-version = "0.1.0"
+version = "0.1.1-alpha.0"
 description = "Tool for automatically generating HDL register slave module"
 authors = ["Michiru Morishita <kokser.merio@gmail.com>"]
 license = "GPLv3"
@@ -30,7 +30,7 @@ flake8 = "^3.8"
 pylint = "^2.8"
 
 [tool.poetry.scripts]
-pelican = "regen.__main__:main"
+regen = "regen.__main__:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
