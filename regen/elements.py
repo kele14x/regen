@@ -1,6 +1,6 @@
 import logging
 import math
-from typing import Optional
+from typing import Optional, List
 
 from .base import Element
 
@@ -84,7 +84,7 @@ class Register(Element):
 
     __slots__ = ['name', 'description', 'rtype', 'address_offset', 'address_size']
 
-    content: Optional[list[Field]]
+    content: Optional[List[Field]]
     parent: Optional['Block']
 
     name: str
@@ -119,12 +119,12 @@ class Register(Element):
 
     @property
     def access(self) -> str:
-        access = 'rsvd'
+        access = 'RSVD'
         for f in self.fields():
-            if access == 'rsvd':
+            if access == 'RSVD':
                 access = f.access
             elif access != f.access:
-                return 'mixed'
+                return 'MIXED'
         return access
 
     @property
@@ -173,7 +173,7 @@ class Block(Element):
 
     __slots__ = ['name', 'description', 'data_width', 'base_address']
 
-    content: Optional[list[Register]]
+    content: Optional[List[Register]]
     parent: Optional['Circuit']
 
     name: str
@@ -250,7 +250,7 @@ class Circuit(Element):
     """Circuit design, may contain one or more blocks."""
     __slots__ = ['name', 'description']
 
-    content: Optional[list[Block]]
+    content: Optional[List[Block]]
     parent: None
 
     name: str

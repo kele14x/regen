@@ -20,14 +20,14 @@ classifiers = [
 "Tracker" = "https://github.com/kele14x/regen/issues"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.6"
 Jinja2 = "^3.0"
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.2"
-sphinx = "^4.0"
-flake8 = "^3.8"
-pylint = "^2.8"
+pytest = "*"
+sphinx = "*"
+flake8 = "*"
+pylint = "*"
 
 [tool.poetry.scripts]
 regen = "regen.__main__:main"

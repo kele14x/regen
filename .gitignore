@@ -1,10 +1,19 @@
+# Python
 __pycache__/
+
+# Pytest
 .pytest_cache/
+
+# IDE
 .idea/
 .vscode/
 
+# Python build tool
 dist/
+
+# Sphinx
 docs/_build/
 
-test/output/*
-!test/output/.gitkeep
+# tests
+tests/output/*
+!tests/output/.gitkeep

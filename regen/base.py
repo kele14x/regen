@@ -1,6 +1,6 @@
 """Base module contains basic Element class for use."""
 import copy
-from typing import Optional
+from typing import Optional, List
 
 
 class Element(object):
@@ -9,7 +9,7 @@ class Element(object):
     __slots__ = ['eid', 'parent', 'content']
     eid: str  # Element ID
     parent: Optional['Element']
-    content: Optional[list['Element']]
+    content: Optional[List['Element']]
 
     def __new__(cls, *args, **kwargs):
         """
