@@ -149,7 +149,7 @@ def main(argv=None):
         if ext in ['.json', '.xlsx', '.xls', '.csv']:
             args.from_format = ext[1:]
         else:
-            logger.error(f'Please specify read format using -f/--from')
+            logger.error('Please specify read format using -f/--from')
             sys.exit(2)
 
     # Guess Output Format
@@ -160,7 +160,7 @@ def main(argv=None):
                    '.json', '.txt']:
             args.to_format = ext[1:]
         else:
-            logger.error(f'Please specify write format using -t/--to')
+            logger.error('Please specify write format using -t/--to')
             sys.exit(2)
 
     # Choose Template
@@ -200,7 +200,7 @@ def main(argv=None):
         sys.exit(2)
 
     if not blk:
-        logger.error(f'Error reading input file, exit...')
+        logger.error('Error reading input file, exit...')
         sys.exit(2)
 
     # Run DRC

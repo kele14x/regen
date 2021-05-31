@@ -2,6 +2,7 @@
 
 import logging
 
+
 def init_logger(name, level: int = None):
     """
     Initialize the logger with specified name and level.
