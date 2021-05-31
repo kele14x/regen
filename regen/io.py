@@ -3,13 +3,12 @@ io is module for input and output function.
 """
 import json
 import logging
-import sys
 from typing import Optional, Union
 
 from jinja2 import Environment, PackageLoader
 
 from .base import Element
-from .elements import Circuit, Block, Register, Field, RegisterType, FieldAccess
+from .elements import Circuit, Block, Register, Field
 
 __all__ = ['read_json', 'read_csv', 'read_xlsx', 'dump_json', 'render_template']
 
@@ -50,21 +49,22 @@ def json_deserialize(d: dict):
         eid = d.get('id', '')
         name = d.get('name', '')
         description = d.get('description', '')
-        type = RegisterType(d.get('type', 'NORMAL'))
+        rtype = d.get('type', 'NORMAL')
         address_offset = d.get('address_offset', 0)
         fields = d['fields']
-        register = Register(eid=eid, name=name, description=description, rtype=type, address_offset=address_offset,
+        register = Register(eid=eid, name=name, description=description, rtype=rtype, address_offset=address_offset,
                             fields=fields)
         return register
 
     if 'access' in d:
         eid = d.get('id', '')
         description = d.get('description', '')
-        access = FieldAccess(d.get('access', 'RW'))
+        access = d.get('access', 'RW')
         bit_offset = d.get('bit_offset', 0)
         bit_width = d.get('bit_width', 1)
         reset = d.get('reset', 0)
-        field = Field(eid=eid, description=description, access=access, bit_offset=bit_offset, bit_width=bit_width, reset=reset)
+        field = Field(eid=eid, description=description, access=access, bit_offset=bit_offset, bit_width=bit_width,
+                      reset=reset)
         return field
 
 
@@ -99,31 +99,22 @@ def read_csv(file: str) -> Optional[Block]:
 # -----------
 
 def json_serializer(elem: Element):
+    assert isinstance(elem, Element)
     return elem.to_dict()
 
 
-def dump_json(elem: Element, output_stream=None):
+def dump_json(elem: Element, output):
     """Serialize this element to JSON formatted ``str``."""
-
-    if not isinstance(elem, Element):
-        msg = f'dump_json needs input of type "regen.Element" but received one of type "{type(elem).__name__}"'
-        raise TypeError(msg)
-
-    if output_stream is None:
-        output_stream = sys.stdout
-
-    json.dump(elem, output_stream, default=json_serializer, indent=2)
+    assert isinstance(elem, Element)
+    json.dump(elem, output, default=json_serializer, indent=2)
 
 
 # Template Output
 # ---------------
 
-def render_template(blk: Block, template: str, output_stream=None):
-    """
-    Render Block using a specified template.
-    """
-    if not isinstance(blk, Block):
-        raise TypeError(f'You can only render template on a Block object, received {type(blk).__name__}')
+def render_template(blk: Block, template: str, output):
+    """Render Block using a specified template."""
+    assert isinstance(blk, Block)
 
     # Configure and build jinja2 template
     env = Environment(
@@ -135,8 +126,5 @@ def render_template(blk: Block, template: str, output_stream=None):
     )
     template = env.get_template(template)
 
-    if output_stream is None:
-        output_stream = sys.stdout
-
     s = template.render(block=blk)
-    output_stream.write(s)
+    output.write(s)

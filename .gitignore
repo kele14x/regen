@@ -1,4 +1,10 @@
 __pycache__/
+.pytest_cache/
 .idea/
 .vscode/
-output/
+
+dist/
+docs/_build/
+
+test/output/*
+!test/output/.gitkeep

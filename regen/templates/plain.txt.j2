@@ -4,7 +4,8 @@ Register Block Information
 Block
 -----
 
-EID          : {{ block.id }}
+ID           : {{ block.id }}
+Full ID      : {{ block.full_id }}
 Identifier   : {{ block.identifier }}
 Name         : {{ block.name }}
 Description  : {{ block.description }}
@@ -18,7 +19,8 @@ Has IRQ      : {{ block.has_irq }}
 IRQ Port
 --------
 
-EID       : {{ port.id }}
+ID        : {{ port.id }}
+Full ID   : {{ port.full_id }}
 Identifier: {{ port.identifier }}
 Bit width : {{ port.bit_width }}
 Direction : {{ port.direction }}
@@ -28,7 +30,8 @@ Direction : {{ port.direction }}
 Port
 ----
 
-EID       : {{ port.id }}
+ID        : {{ port.id }}
+Full ID   : {{ port.full_id }}
 Identifier: {{ port.identifier }}
 Bit width : {{ port.bit_width }}
 Direction : {{ port.direction }}
@@ -38,13 +41,27 @@ Direction : {{ port.direction }}
 Register
 --------
 
-EID           : {{ reg.id }}
+ID            : {{ reg.id }}
+Full ID       : {{ reg.full_id }}
 Identifier    : {{ reg.identifier }}
 Name          : {{ reg.name }}
 Description   : {{ reg.description }}
 Type          : {{ reg.type }}
 Address offset: {{ reg.address_offset }}
 Address size  : {{ reg.address_size }}
-content       : {{ reg.content[0].parent }}
+Has IRQ       : {{ reg.has_irq }}
+
+{% endfor %}
+{% for field in block.fields() %}
+Field
+-----
+
+ID         : {{ field.id }}
+Full ID    : {{ field.full_id }}
+Identifier : {{ field.identifier }}
+Description: {{ field.description }}
+Access     : {{ field.access }}
+Bit offset : {{ field.bit_offset }}
+Bit width  : {{ field.bit_width }}
 
 {% endfor %}

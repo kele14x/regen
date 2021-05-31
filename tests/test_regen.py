@@ -1,7 +1,13 @@
 """Test with simple GPIO."""
 import regen
+from regen import __version__
+
 
 b = regen.read_json('./tests/simple_gpio.json')
+
+
+def test_version():
+    assert __version__ == '0.1.0'
 
 
 def test_read_json():
@@ -33,7 +39,5 @@ def test_symbol():
     assert symbols[-1] == 'SIMPLE_GPIO.IP_IER.IE1'
 
 
-def test_regen():
-    regen.main('-q -o ./output/simple_gpio.json ./tests/simple_gpio.json'.split())
-    regen.main('-q -o ./output/simple_gpio.sv ./tests/simple_gpio.json'.split())
-    regen.main('-q -o ./output/simple_gpio.h ./tests/simple_gpio.json'.split())
+def test_systemverilog():
+    regen.main('-q -o ./tests/output/gpio_interrupt.sv ./tests/gpio_interrupt.json'.split())

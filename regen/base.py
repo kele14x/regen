@@ -24,12 +24,23 @@ class Element(object):
         elem.content = None
         return elem
 
+    def __init__(self, eid='', parent=None):
+        self.eid = eid
+        self.parent = parent
+
     @property
     def id(self):
+        """Get the simple ID."""
         return self.eid
 
     @property
+    def full_id(self):
+        """Get the full hierarchical ID."""
+        return self.symbol()
+
+    @property
     def identifier(self):
+        """Get the proper hierarchical ID for HDL generation."""
         return self.symbol()
 
     def to_dict(self) -> dict:

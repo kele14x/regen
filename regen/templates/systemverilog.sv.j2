@@ -1,0 +1,588 @@
+{#- Port declaration line -#}
+{% macro declare_port(direction, identifier, width=1) -%}
+{{ direction }} var {% if width > 1 %}[{{ width - 1 }}:0] {% endif %}{{ identifier | lower }}
+{%- endmacro -%}
+
+
+{#- Signal declaration line -#}
+{% macro declare_signal(identifier, width=1) -%}
+logic {% if width > 1 %}[{{ width - 1 }}:0] {% endif %}{{ identifier | lower }};
+{%- endmacro -%}
+
+
+{#- Ports of a field -#}
+{% macro ports_of_field(field, last=False) -%}
+{% if field.access == "RO" or field.access == "INT" %}
+{{ declare_port("input", field.identifier, field.bit_width) }}
+{%- elif field.access == "RW" %}
+{{ declare_port("output", field.identifier, field.bit_width) }}
+{%- elif field.access == "RW2" %}
+{{ declare_port("input", field.identifier + "_in", field.bit_width) }},
+{{ declare_port("output", field.identifier + "_out", field.bit_width) }}
+{%- else %}
+// TEMPLATE ERROR: UNSUPPORTED FILED ACCESS TYPE
+{% endif %}
+{%- if not last %},{% endif %}
+{%- endmacro -%}
+
+
+{#- This macro generate the behavioural model for field -#}
+{%- macro field_model(field) -%}
+{% if field.access == "RO" %}
+{{ declare_signal(field.identifier + "_ireg", field.bit_width) }}
+
+always_ff @(posedge aclk) begin
+  {{ field.identifier | lower }}_ireg <= {{ field.identifier | lower }};
+end
+{% elif field.access == "RW" %}
+{{ declare_signal(field.identifier + "_oreg", field.bit_width) }}
+
+always_ff @(posedge aclk) begin
+  if (!aresetn) begin
+    {{ field.identifier | lower }}_oreg <= {{ field.reset }};
+  end else if (wr_req && wr_addr == {{ field.address_offset }}) begin
+    {{ field.identifier | lower }}_oreg <= wr_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}];
+  end
+end
+
+assign {{ field.identifier | lower }} = {{ field.identifier | lower }}_oreg;
+{% elif field.access == "RW2" %}
+{{ declare_signal(field.identifier + "_ireg", field.bit_width) }}
+{{ declare_signal(field.identifier + "_oreg", field.bit_width) }}
+
+always_ff @(posedge aclk) begin
+  {{ field.identifier | lower }}_ireg <= {{ field.identifier | lower }}_in;
+end
+
+always_ff @(posedge aclk) begin
+  if (!aresetn) begin
+    {{ field.identifier | lower }}_oreg <= {{ field.reset }};
+  end else if (wr_req && wr_addr == {{ field.address_offset }}) begin
+    {{ field.identifier | lower }}_oreg <= wr_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}];
+  end
+end
+
+assign {{ field.identifier | lower }}_out = {{ field.identifier | lower }}_oreg;
+{% elif field.access == "INT" %}
+{{ declare_signal(field.identifier + "_ireg", field.bit_width) }}
+{{ declare_signal(field.identifier + "_d", field.bit_width) }}
+{{ declare_signal(field.identifier + "_int", field.bit_width) }}
+{{ declare_signal(field.identifier + "_trap", field.bit_width) }}
+{{ declare_signal(field.identifier + "_mask", field.bit_width) }}
+{{ declare_signal(field.identifier + "_force", field.bit_width) }}
+{{ declare_signal(field.identifier + "_dbg", field.bit_width) }}
+{{ declare_signal(field.identifier + "_trig", field.bit_width) }}
+
+always_ff @(posedge aclk) begin
+  {{ field.identifier | lower }}_ireg <= {{ field.identifier | lower }};
+  {{ field.identifier | lower }}_d    <= {{ field.identifier | lower }}_ireg;
+end
+
+always_ff @(posedge aclk) begin
+  {{ field.identifier | lower }}_int <= {{ field.identifier | lower }}_trap & {{ field.identifier | lower }}_mask;
+end
+
+always_ff @(posedge aclk) begin
+  if (!aresetn) begin
+    {{ field.identifier | lower }}_trap <= '0;
+  end else if (wr_req && wr_addr == {{ field.address_offset + 1 }}) begin
+    {{ field.identifier | lower }}_trap <= {{ field.identifier | lower }}_trap & ~wr_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}];
+  end else begin
+    {{ field.identifier | lower }}_trap <= {{ field.identifier | lower }}_trap | {{ field.identifier | lower }}_force |
+      ({{ field.identifier | lower }}_ireg & (~{{ field.identifier | lower }}_d | ~{{ field.identifier | lower }}_trig));
+  end
+end
+
+always_ff @(posedge aclk) begin
+  if (!aresetn) begin
+    {{ field.identifier | lower }}_mask <= '0;
+  end else if (wr_req && wr_addr == {{ field.address_offset + 2}}) begin
+    {{ field.identifier | lower }}_mask <= wr_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}];
+  end
+end
+
+always_ff @(posedge aclk) begin
+  if (!aresetn) begin
+    {{ field.identifier | lower }}_force <= '0;
+  end else if (wr_req && wr_addr == {{ field.address_offset + 3}}) begin
+    {{ field.identifier | lower }}_force <= wr_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}];
+  end else begin
+    {{ field.identifier | lower }}_force <= '0;
+  end
+end
+
+always_ff @(posedge aclk) begin
+  if (!aresetn) begin
+    {{ field.identifier | lower }}_trig <= '0;
+  end else if (wr_req && wr_addr == {{ field.address_offset + 5}}) begin
+    {{ field.identifier | lower }}_trig <= wr_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}];
+  end
+end
+{% else %}
+// TEMPLATE ERROR: UNSUPPORTED FILED ACCESS TYPE
+{% endif %}
+{%- endmacro -%}
+
+
+{#- This macro generate the behavioural model for register #}
+{% macro register_model(register) %}
+{% if register.type == "INTERRUPT" %}
+always_ff @(posedge aclk) begin
+  {{ register.identifier | lower }}_irq <= |{{ "{" }}
+    {%- for filed in register.fields() -%}
+      {{ filed.identifier | lower }}_int{% if not loop.last %}, {% endif %}
+    {%- endfor -%}
+    {{ "}" }};
+end
+{% endif %}
+{% endmacro -%}
+
+
+{#- This macro generate the register reading process -#}
+{%- macro read_proc(block) -%}
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      rd_data <= '0;
+    end else if (rd_req) begin
+      rd_data <= '0;
+      case (rd_addr)
+  {% for register in block.registers() %}
+    {% if register.type == "INTERRUPT" %}
+        {{ register.address_offset }}: begin
+      {% for field in register.fields() %}
+          rd_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}] <= {{ field.identifier | lower }}_int;
+      {% endfor %}
+        end
+        {{ register.address_offset + 1 }}: begin
+      {% for field in register.fields() %}
+          rd_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}] <= {{ field.identifier | lower }}_trap;
+      {% endfor %}
+        end
+        {{ register.address_offset + 2 }}: begin
+      {% for field in register.fields() %}
+          rd_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}] <= {{ field.identifier | lower }}_mask;
+      {% endfor %}
+        end
+        {{ register.address_offset + 3 }}: begin
+      {% for field in register.fields() %}
+          rd_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}] <= {{ field.identifier | lower }}_force;
+      {% endfor %}
+        end
+        {{ register.address_offset + 4 }}: begin
+      {% for field in register.fields() %}
+          rd_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}] <= {{ field.identifier | lower }}_dbg;
+      {% endfor %}
+        end
+        {{ register.address_offset + 5 }}: begin
+      {% for field in register.fields() %}
+          rd_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}] <= {{ field.identifier | lower }}_trig;
+      {% endfor %}
+        end
+    {% else %}
+        {{ register.address_offset }}: begin
+      {% for field in register.fields() %}
+        {% if field.access == "RO" %}
+          rd_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}] <= {{ field.identifier | lower }}_ireg;
+        {% elif field.access == "RW" %}
+          rd_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}] <= {{ field.identifier | lower }}_oreg;
+        {% elif field.access == "RW2" %}
+          rd_data[{{ field.bit_width + field.bit_offset - 1 }}:{{ field.bit_offset }}] <= {{ field.identifier | lower }}_ireg;
+        {% endif %}
+      {% endfor %}
+        end
+    {% endif %}
+  {% endfor %}
+        default: rd_data <= 'hDEADBEEF;
+      endcase
+    end
+  end
+{%- endmacro -%}
+
+
+//*****************************************************************************
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//*****************************************************************************
+`timescale 1 ns / 1 ps `default_nettype none
+
+module {{ block.identifier | lower }}_regs #(
+    parameter C_ADDR_WIDTH = {{ block.address_width }},
+    parameter C_DATA_WIDTH = {{ block.data_width }}
+) (
+    // AXI4-Lite Slave
+    input var                       aclk,
+    input var                       aresetn,
+    //
+    input var  [  C_ADDR_WIDTH-1:0] s_axi_awaddr,
+    input var  [               2:0] s_axi_awprot,
+    input var                       s_axi_awvalid,
+    output var                      s_axi_awready,
+    //
+    input var  [  C_DATA_WIDTH-1:0] s_axi_wdata,
+    input var  [C_DATA_WIDTH/8-1:0] s_axi_wstrb,
+    input var                       s_axi_wvalid,
+    output var                      s_axi_wready,
+    //
+    output var [               1:0] s_axi_bresp,
+    output var                      s_axi_bvalid,
+    input var                       s_axi_bready,
+    //
+    input var  [  C_ADDR_WIDTH-1:0] s_axi_araddr,
+    input var  [               2:0] s_axi_arprot,
+    input var                       s_axi_arvalid,
+    output var                      s_axi_arready,
+    //
+    output var [  C_DATA_WIDTH-1:0] s_axi_rdata,
+    output var [               1:0] s_axi_rresp,
+    output var                      s_axi_rvalid,
+    input var                       s_axi_rready
+    {%- if block.has_irq or block.has_port -%},
+    {% endif %}
+    {% if block.has_irq %}
+    // IRQ Ports
+        {% for register in (block.registers() | selectattr("has_irq")) %}
+    // Register {{ register.identifier }}
+    {{ declare_port('output', register.identifier + '_irq') }}
+    {%- if not loop.last or block.has_port -%},
+    {% endif %}
+        {% endfor %}
+    {% endif %}
+    {% if block.has_port %}
+    // Register Ports
+        {% for register in (block.registers() | selectattr("has_port")) %}
+            {% set outer_loop = loop %}
+            {% for field in (register.fields() | selectattr("has_port")) %}
+    // Field {{ register.identifier }}.{{ field.identifier }}
+    {{ ports_of_field(field, last=outer_loop.last and loop.last) | indent(4) }}
+            {% endfor %}
+        {% endfor %}
+    {% endif %}
+);
+
+  // synthesis translate_off
+  initial begin
+    assert ((C_DATA_WIDTH == 32) || (C_DATA_WIDTH == 64))
+      else $error("AXI-4 Lite interface only support C_DATA_WIDTH=32 or 64");
+  end
+  // synthesis translate_on
+
+  // RRESP/BRESP
+  localparam logic [1:0] RespOkey   = 2'b00;  //   OKAY, normal access success
+  localparam logic [1:0] RespExokay = 2'b01;  // EXOKAY, exclusive access success
+  localparam logic [1:0] RespSlverr = 2'b10;  // SLVERR, slave error
+  localparam logic [1:0] RespDecerr = 2'b11;  // DECERR, decoder error
+
+
+  // Write State Machine
+  //====================
+
+  // Write Iteration Interval = 3+ (back-to-back write transaction)
+  // Write Latency = 3+ (from AWADDR/WDATA transaction to data appear on port)
+
+  typedef enum int {
+    S_WRRST , // in reset
+    S_WRIDLE, // idle, waiting for both write address and write data
+    S_WRADDR, // write data is provided, waiting for write address
+    S_WRDATA, // write address is provided, waiting for write data
+    S_WRREQ,  // set wr_req,
+    S_WRDEC,  // writer decoding
+    S_WRRESP  // `wr_ack` is assert, response to axi master
+  } wr_state_t;
+
+  wr_state_t wr_state, wr_state_next;
+
+  logic wr_valid, wr_addr_valid, wr_data_valid;
+
+  logic [C_DATA_WIDTH/8-1:0] wr_be;
+  logic [  C_ADDR_WIDTH-3:0] wr_addr;
+  logic [  C_DATA_WIDTH-1:0] wr_data;
+
+  logic                      wr_req;
+  logic                      wr_ack;
+
+
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      wr_state <= S_WRRST;
+    end else begin
+      wr_state <= wr_state_next;
+    end
+  end
+
+  always_comb begin
+    case (wr_state)
+      S_WRRST:  wr_state_next = S_WRIDLE;
+      S_WRIDLE: wr_state_next = (s_axi_awvalid && s_axi_wvalid) ? S_WRREQ :
+                                                   s_axi_awvalid ? S_WRADDR :
+                                                   s_axi_wvalid  ? S_WRDATA :
+                                                   S_WRIDLE;
+      S_WRADDR: wr_state_next = !s_axi_wvalid  ? S_WRADDR : S_WRREQ;
+      S_WRDATA: wr_state_next = !s_axi_awvalid ? S_WRDATA : S_WRREQ;
+      S_WRREQ:  wr_state_next = S_WRDEC;
+      S_WRDEC:  wr_state_next = S_WRRESP;
+      S_WRRESP: wr_state_next = !s_axi_bready  ? S_WRRESP : S_WRIDLE;
+      default:  wr_state_next = S_WRRST;
+    endcase
+  end
+
+  assign wr_valid = ((wr_state == S_WRIDLE) && s_axi_awvalid && s_axi_wvalid) ||
+      ((wr_state == S_WRADDR) && s_axi_wvalid) ||
+      ((wr_state == S_WRDATA) && s_axi_awvalid);
+
+  assign wr_addr_valid = ((wr_state == S_WRIDLE) && s_axi_awvalid) ||
+      ((wr_state == S_WRDATA) && s_axi_awvalid);
+
+  assign wr_data_valid = ((wr_state == S_WRIDLE) && s_axi_wvalid) ||
+      ((wr_state == S_WRADDR) && s_axi_wvalid);
+
+
+  // Write Address Channel
+  //----------------------
+
+  // We are waiting for both write address and write data, but only write
+  // address is provided. Register it for later use.
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      wr_addr <= 'd0;
+    end else if (wr_addr_valid) begin
+      wr_addr <= s_axi_awaddr[C_ADDR_WIDTH-1:2];
+    end
+  end
+
+  // Slave can accept write address if idle, or if only write data is
+  // provided.
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      s_axi_awready <= 1'b0;
+    end else begin
+      s_axi_awready <= (wr_state_next == S_WRIDLE || wr_state_next == S_WRDATA);
+    end
+  end
+
+
+  // Write Data Channel
+  //-------------------
+
+  // We are waiting for both write address and write data, but only write
+  // data is provided. Register it for later use.
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      wr_data <= 'd0;
+      wr_be   <= 'd0;
+    end else if (wr_data_valid) begin
+      wr_data <= s_axi_wdata;
+      wr_be   <= s_axi_wstrb;
+    end
+  end
+
+  // Slave can accpet write data if idle, or if only write address is
+  // provided.
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      s_axi_wready <= 1'b0;
+    end else begin
+      s_axi_wready <= (wr_state_next == S_WRIDLE || wr_state_next == S_WRADDR);
+    end
+  end
+
+
+  // Write Response Channel
+  //-----------------------
+
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      wr_req <= 1'b0;
+    end else begin
+      wr_req <= wr_valid;
+    end
+  end
+
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      s_axi_bvalid <= 1'b0;
+    end else begin
+      s_axi_bvalid <= (wr_state_next == S_WRRESP);
+    end
+  end
+
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      s_axi_bresp <= 0;
+    end else if (wr_state == S_WRDEC) begin
+      s_axi_bresp <= wr_ack ? RespOkey : RespSlverr;
+    end
+  end
+
+
+  // Read State Machine
+  //===================
+
+  // Read Iteration Interval = 3 (back-to-back read transaction)
+  // Read Latency = 3 (from ARADDR transaction to RDATA transaction)
+
+  typedef enum int {
+    S_RDRST ,
+    S_RDIDLE,
+    S_RDREQ,
+    S_RDDEC,
+    S_RDRESP
+  } rd_state_t;
+
+  rd_state_t rd_state, rd_state_next;
+
+  logic                    rd_valid;
+
+  logic [C_ADDR_WIDTH-3:0] rd_addr;
+  logic [C_DATA_WIDTH-1:0] rd_data;
+
+  logic                    rd_req;
+  logic                    rd_ack;
+
+
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      rd_state <= S_RDRST;
+    end else begin
+      rd_state <= rd_state_next;
+    end
+  end
+
+  always_comb begin
+    case(rd_state)
+      S_RDRST:  rd_state_next = S_RDIDLE;
+      S_RDIDLE: rd_state_next = !s_axi_arvalid ? S_RDIDLE : S_RDREQ;
+      S_RDREQ:  rd_state_next = S_RDDEC;
+      S_RDDEC:  rd_state_next = S_RDRESP;
+      S_RDRESP: rd_state_next = !s_axi_rready  ? S_RDRESP : S_RDIDLE;
+      default:  rd_state_next = S_RDRST;
+    endcase
+  end
+
+  assign rd_valid = (rd_state == S_RDIDLE) && s_axi_arvalid;
+
+
+  // Read Address Channel
+  //---------------------
+
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      rd_addr <= 'd0;
+    end else if (rd_valid) begin
+      rd_addr <= s_axi_araddr[C_ADDR_WIDTH-1:2];
+    end
+  end
+
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      s_axi_arready <= 1'b0;
+    end else begin
+      s_axi_arready <= (rd_state_next == S_RDIDLE);
+    end
+  end
+
+
+  // Read Data/Response Channel
+  //---------------------------
+
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      rd_req <= 1'b0;
+    end else begin
+      rd_req <= rd_valid;
+    end
+  end
+
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      s_axi_rvalid <= 1'b0;
+   end else begin
+      s_axi_rvalid <= (rd_state_next == S_RDRESP);
+    end
+  end
+
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      s_axi_rdata <= 0;
+    end else if (rd_state == S_RDDEC) begin
+      s_axi_rdata <= rd_data;
+    end
+  end
+
+  always_ff @(posedge aclk) begin
+    if (!aresetn) begin
+      s_axi_rresp <= 0;
+    end else if (rd_state == S_RDDEC) begin
+      s_axi_rresp <= rd_ack ? RespOkey : RespSlverr;
+    end
+  end
+
+
+  // Register Model
+  //===============
+
+  {% for register in block.registers() %}
+      {% for field in register.fields() %}
+  // {{ field.identifier }} @{{ field.address_offset }}#{{ field.bit_offset }}
+
+  {{ field_model(field) | indent(2) }}
+      {% endfor %}
+  // {{ register.identifier }} @{{ register.address_offset }}
+
+  {{ register_model(register) | indent(2) }}
+  {% endfor %}
+
+  // Write ACK
+  //==========
+
+  always_comb begin
+    wr_ack = 1'b0;
+    {% for register in block.registers() %}
+        {% if register.type == 'INTERRUPT' %}
+    if ({{ register.address_offset }} <= wr_addr && wr_addr <= {{ register.address_offset + 5}}) begin
+      wr_ack = 1'b1;
+    end
+        {% elif register.type == 'NORMAL' %}
+    if ({{ register.address_offset }} == wr_addr) begin
+      wr_ack = 1'b1;
+    end
+        {% endif %}
+    {% endfor %}
+  end
+
+
+  // Read Register
+  //==============
+
+  {{ read_proc(block) }}
+
+
+  // Read ACK
+  //=========
+
+  always_comb begin
+    rd_ack = 1'b0;
+    {% for register in block.registers() %}
+        {% if register.type == 'INTERRUPT' %}
+    if ({{ register.address_offset }} <= wr_addr && wr_addr <= {{ register.address_offset + 5}}) begin
+      rd_ack = 1'b1;
+    end
+        {% elif register.type == 'NORMAL' %}
+    if ({{ register.address_offset }} == wr_addr) begin
+      rd_ack = 1'b1;
+    end
+        {% endif %}
+    {% endfor %}
+  end
+
+endmodule
+
+`default_nettype wire
