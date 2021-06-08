@@ -12,12 +12,24 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //*****************************************************************************
 
-{% for f in block.fields() %}
-/* Type = {{ f.access }} */
-#define {{ f.symbol() | upper }}_ADDR {{ '0x%x' % f.parent.address }} /* {{ f.parent.address }} */
-#define {{ f.symbol() | upper }}_MASK {{ '0x%x' % f.bit_mask }} /* {{ f.bit_mask }} */
-#define {{ f.symbol() | upper }}_OFFSET {{ '0x%x' % f.bit_offset }} /* {{ f.bit_offset }} */
-#define {{ f.symbol() | upper }}_WIDTH {{ '0x%x' % f.bit_width }} /* {{ f.bit_width }} */
-#define {{ f.symbol() | upper }}_DEFAULT {{ '0x%x' % f.reset }} /* {{ f.reset }} */
+{% for r in block.registers() %}
+    {# Interrupt register have 5 additional mirror registers with suffix #}
+    {% if r.type == 'INTERRUPT' %}
+        {% set suffix = ['', '_TRAP', '_MASK', '_FORCE', '_DBG', '_TRIG'] %}
+    {% else %}
+        {% set suffix = [''] %}
+    {% endif %}
+    {# #}
+    {% for s in suffix %}
+        {% set i = loop.index0 %}
+        {% for f in r.fields() %}
+/* Type = {{f.access}} */
+#define {{f.identifier.upper() + s}}_ADDR {{'0x%x' % (f.parent.address_offset + i)}} /* {{f.parent.address_offset + i}} */
+#define {{f.identifier.upper() + s}}_MASK {{'0x%x' % f.bit_mask}} /* {{f.bit_mask}} */
+#define {{f.identifier.upper() + s}}_OFFSET {{'0x%x' % f.bit_offset}} /* {{f.bit_offset}} */
+#define {{f.identifier.upper() + s}}_WIDTH {{'0x%x' % f.bit_width}} /* {{f.bit_width}} */
+#define {{f.identifier.upper() + s}}_DEFAULT {{'0x%x' % f.reset}} /* {{f.reset}} */
 
-{% endfor -%}
+        {% endfor %}
+    {% endfor %}
+{% endfor %}

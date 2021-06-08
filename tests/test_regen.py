@@ -39,5 +39,11 @@ def test_symbol():
     assert symbols[-1] == 'SIMPLE_GPIO.IP_IER.IE1'
 
 
+def test_c_header():
+    regen.main('-q -o ./tests/output/gpio_interrupt.h '
+               './tests/gpio_interrupt.json'.split())
+
+
 def test_systemverilog():
-    regen.main('-q -o ./tests/output/gpio_interrupt.sv ./tests/gpio_interrupt.json'.split())
+    regen.main('-q -o ./tests/output/gpio_interrupt.sv '
+               './tests/gpio_interrupt.json'.split())

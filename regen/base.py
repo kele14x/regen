@@ -87,7 +87,9 @@ class Element(object):
             return self.parent.ancestor(n - 1)
 
     def count(self) -> int:
-        """Count the number of elements, including children elements and self."""
+        """
+        Count the number of elements, including children elements and self.
+        """
         return sum((1 for _ in self.walk()))
 
     # Iteration

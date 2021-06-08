@@ -17,7 +17,8 @@ class Field(Element):
     """
     Field abstraction class
 
-    A field represents a set of bits that behave consistently as a single entity.
+    A field represents a set of bits that behave consistently as a single
+    entity.
 
     A field is contained within a single register.
     """
@@ -34,7 +35,8 @@ class Field(Element):
     bit_width: int
     reset: int
 
-    def __init__(self, eid='', description='', access='RW', bit_offset=0, bit_width=1, reset=0, parent=None):
+    def __init__(self, eid='', description='', access='RW', bit_offset=0,
+                 bit_width=1, reset=0, parent=None):
         """Build a field object from parameters."""
         super(Field, self).__init__(eid=eid, parent=parent)
 
@@ -82,7 +84,8 @@ class Field(Element):
 class Register(Element):
     """Register in register block."""
 
-    __slots__ = ['name', 'description', 'rtype', 'address_offset', 'address_size']
+    __slots__ = ['name', 'description', 'rtype',
+                 'address_offset', 'address_size']
 
     content: Optional[List[Field]]
     parent: Optional['Block']
@@ -93,7 +96,8 @@ class Register(Element):
     address_offset: int
     address_size: int
 
-    def __init__(self, eid='', name='', description='', rtype='NORMAL', address_offset=0, address_size=1, parent=None,
+    def __init__(self, eid='', name='', description='', rtype='NORMAL',
+                 address_offset=0, address_size=1, parent=None,
                  fields=None):
         """Build a register from parameters."""
         super(Register, self).__init__(eid=eid, parent=parent)
@@ -141,7 +145,8 @@ class Register(Element):
 
     @property
     def has_irq(self):
-        if self.rtype == 'INTERRUPT' and self.content is not None and self.content:
+        if (self.rtype == 'INTERRUPT' and self.content is not None and
+                self.content):
             return True
         return False
 
@@ -181,7 +186,8 @@ class Block(Element):
     data_width: int
     base_address: int
 
-    def __init__(self, eid='', name='', description='', data_width=32, base_address=0, parent=None, registers=None):
+    def __init__(self, eid='', name='', description='', data_width=32,
+                 base_address=0, parent=None, registers=None):
         """Build a block (register slave module) from parameters."""
         super(Block, self).__init__(eid=eid, parent=parent)
 
@@ -199,13 +205,17 @@ class Block(Element):
     def address_width(self) -> int:
         """Minimum required address data_width."""
         if self.content is not None:
-            return math.ceil(math.log2(self.content[-1].address_offset + 1)) + 2
+            return math.ceil(math.log2(
+                self.content[-1].address_offset + 1)) + 2
         else:
             return 0
 
     @property
     def address_gap(self) -> int:
-        """Address gap size, i.e. minimum address difference between two registers"""
+        """
+        Address gap size, i.e. minimum address difference between two
+        registers.
+        """
         return math.floor(self.data_width / 8)
 
     @property
@@ -224,7 +234,6 @@ class Block(Element):
 
     def registers(self):
         """Return a generator that iterates all registers."""
-        # Instead of directly return ``self.content``, it should yield from ```register.expanded()``.
         if self.content is not None:
             yield from self.content
 
@@ -256,7 +265,8 @@ class Circuit(Element):
     name: str
     description: str
 
-    def __init__(self, eid='', name='', description='', parent=None, blocks=None):
+    def __init__(self, eid='', name='', description='', parent=None,
+                 blocks=None):
         super(Circuit, self).__init__(eid=eid, parent=parent)
 
         self.name = name

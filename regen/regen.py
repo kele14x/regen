@@ -75,16 +75,6 @@ def parse_arguments(argv=None):
         help='Specify output format',
     )
 
-    # Using a costumed template instead of builtin ones. If user choose this,
-    # the output format argument is ignored.
-    parser.add_argument(
-        '--template',
-        default=None,
-        dest='template',
-        help='Specify the template to use. If using this option, '
-             '-t/--to is ignored',
-    )
-
     # Logging Options
 
     # By default, the logging level is set to WARNING, which means all
@@ -131,9 +121,13 @@ def parse_arguments(argv=None):
     return args
 
 
+def format_from_ext(filename: str) -> str:
+    (_, ext) = os.path.splitext(filename)
+    return ext[1:]
+
+
 def main(argv=None):
     """Will be called if script is executed as script."""
-    # skip first argument, which is path to script self
     args = parse_arguments(argv)
 
     init_logger('main', level=args.verbosity)
@@ -145,59 +139,43 @@ def main(argv=None):
     # Guess Input Format
 
     if args.from_format is None:
-        (name, ext) = os.path.splitext(args.input)
-        if ext in ['.json', '.xlsx', '.xls', '.csv']:
-            args.from_format = ext[1:]
-        else:
-            logger.error('Please specify read format using -f/--from')
-            sys.exit(2)
+        from_format = format_from_ext(args.input)
+    else:
+        from_format = args.from_format
 
     # Guess Output Format
 
     if args.to_format is None:
-        (name, ext) = os.path.splitext(args.output)
-        if ext in ['.sv', '.v', '.vhd', '.vhdl', '.h', '.vh', '.svh',
-                   '.json', '.txt']:
-            args.to_format = ext[1:]
-        else:
-            logger.error('Please specify write format using -t/--to')
-            sys.exit(2)
+        to_format = format_from_ext(args.output)
+    else:
+        to_format = args.to_format
 
     # Choose Template
 
-    if args.template is None:
-        if args.to_format == 'sv':
-            args.template = 'systemverilog.sv.j2'
-        elif args.to_format == 'v':
-            args.template = 'verilog.v.j2'
-        elif args.to_format == 'vhd' or args.to_format == 'vhdl':
-            args.template = 'vhdl.vhd.j2'
-        elif args.to_format == 'h':
-            args.template = 'c_header.h.j2'
-        elif args.to_format == 'vh':
-            args.template = 'verilog_header.vh.j2'
-        elif args.to_format == 'svh':
-            args.template = 'systemverilog_header.svh.j2'
-        elif args.to_format == 'txt':
-            args.template = 'plain.txt.j2'
-        elif args.to_format == 'json':
-            # JSON conversion is not done using template
-            pass
-        else:
-            logger.error(f'Unsupported write format: {args.to_format}')
-            sys.exit(2)
+    templates = {
+        'h': 'c_header.h.j2',
+        'sv': 'systemverilog.sv.j2',
+        'svh': 'systemverilog_header.svh.j2',
+        'txt': 'plain.txt.j2',
+        'v': 'verilog.v.j2',
+        'vh': 'verilog_header.vh.j2',
+        'vhd': 'vhdl.vhd.j2',
+        'json': ''
+    }
+    template_name = templates.get(to_format, '')
 
     # Read Input File
 
-    if args.from_format == 'json':
+    if from_format == 'json':
         blk = read_json(args.input)
-    elif args.from_format == 'xlsx' or args.from_format == 'xls':
+    elif from_format == 'xlsx' or args.from_format == 'xls':
         blk = read_xlsx(args.input)
-    elif args.from_format == 'csv':
+    elif from_format == 'csv':
         blk = read_csv(args.input)
     else:
-        logger.error(f'Unsupported read format: {args.from_format}')
-        sys.exit(2)
+        msg = f'Unsupported read format: {args.from_format}'
+        logger.error(msg)
+        raise(msg)
 
     if not blk:
         logger.error('Error reading input file, exit...')
@@ -214,7 +192,7 @@ def main(argv=None):
             if args.to_format == 'json':
                 dump_json(blk, f)
             else:
-                render_template(blk, args.template, f)
+                render_template(blk, template_name, f)
 
 
 if __name__ == '__main__':
